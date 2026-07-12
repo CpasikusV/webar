@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>WebAR · Складская навигация</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Экран запроса доступа к камере -->
+  <section id="gate" class="gate">
+    <div class="gate__mark">AR</div>
+    <h1 class="gate__title">Складская навигация</h1>
+    <p class="gate__sub">Наведите камеру на QR-код или штрихкод ячейки, чтобы увидеть остатки и статус.</p>
+    <button id="startBtn" class="btn btn--primary">Включить камеру</button>
+    <p id="gateError" class="gate__error" hidden></p>
+  </section>
+
+  <!-- Основной AR-экран -->
+  <main id="stage" class="stage" hidden>
+    <video id="video" class="stage__video" autoplay playsinline muted></video>
+    <canvas id="overlay" class="stage__overlay"></canvas>
+
+    <!-- Верхняя панель состояния -->
+    <header class="topbar">
+      <div class="topbar__status" id="connStatus" data-state="online">
+        <span class="dot"></span>
+        <span class="topbar__statusText">Онлайн</span>
+      </div>
+      <div class="topbar__hint" id="scanHint">Наведите камеру на метку ячейки</div>
+    </header>
+
+    <!-- Контейнер для AR-табло: одновременно может отображаться несколько
+         панелей — по одной на каждую распознанную в кадре метку -->
+    <div id="panelLayer" class="panellayer"></div>
+
+    <!-- Шаблон одной AR-панели, клонируется в panel.js на каждую метку -->
+    <template id="cellPanelTemplate">
+      <div class="cellpanel">
+        <div class="cellpanel__head">
+          <span class="cellpanel__cell" data-field="cell">—</span>
+          <span class="cellpanel__badge" data-field="badge">—</span>
+        </div>
+        <div class="cellpanel__thumb" data-field="thumbWrap" hidden>
+          <img data-field="thumb" alt="" />
+        </div>
+        <div class="cellpanel__name" data-field="name">—</div>
+        <div class="cellpanel__qty">
+          <span data-field="qty">—</span> <span class="cellpanel__unit">шт.</span>
+        </div>
+        <div class="cellpanel__meta" data-field="meta"></div>
+      </div>
+    </template>
+
+    <!-- Предупреждение для браузеров без поддержки многократного
+         распознавания за один кадр (например, старый Safari) -->
+    <div id="singleModeNotice" class="chip chip--notice" hidden>
+      Браузер распознаёт по одной метке за раз
+    </div>
+
+    <!-- Индикатор загрузки данных по метке -->
+    <div id="loadingChip" class="chip chip--loading" hidden>
+      <span class="spinner"></span> Запрашиваем данные…
+    </div>
+
+    <!-- Подсказка / запасной сценарий при отсутствии распознавания -->
+    <div id="fallbackChip" class="chip chip--fallback" hidden>
+      Метка не распознана
+      <button id="manualBtn" class="chip__action">Ввести номер вручную</button>
+    </div>
+
+    <!-- Нижняя панель управления -->
+    <footer class="bottombar">
+      <button id="torchBtn" class="iconbtn" title="Фонарик" hidden>💡</button>
+      <button id="switchZoneBtn" class="iconbtn" title="Тип метки">QR + Штрихкод</button>
+      <button id="manualBtnBottom" class="iconbtn" title="Ввести вручную">⌨</button>
+    </footer>
+  </main>
+
+  <!-- Модальное окно ручного ввода -->
+  <div id="manualModal" class="modal" hidden>
+    <div class="modal__box">
+      <h2 class="modal__title">Ввод номера ячейки</h2>
+      <p class="modal__sub">Используйте, если метка повреждена или не считывается.</p>
+      <input id="manualInput" class="modal__input" type="text" inputmode="text" placeholder="Например, A-12-03" autocomplete="off" />
+      <div class="modal__actions">
+        <button id="manualCancel" class="btn btn--ghost">Отмена</button>
+        <button id="manualSubmit" class="btn btn--primary">Показать данные</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Внешняя библиотека распознавания: ZXing умеет и QR, и линейные штрихкоды
+       (Code128/EAN) одним движком — то, что нужно по п.3.1 ТЗ (гибридный трекинг) -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+
+  <!-- Логика приложения -->
+  <script src="js/mock-api.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -16,7 +16,14 @@
  */
 
 const Scanner = (() => {
-  const FORMATS = ["qr_code", "code_128", "ean_13", "ean_8"];
+  // Расширенный список форматов: изначально ограничивались QR/Code128/EAN,
+  // из-за чего штрихкоды других типов (Code39, UPC-A, ITF и т.п.)
+  // молча игнорировались — детектор просто не пытался их искать.
+  const FORMATS = [
+    "qr_code", "code_128", "code_39", "code_93", "codabar",
+    "ean_13", "ean_8", "itf", "upc_a", "upc_e",
+    "data_matrix", "pdf417", "aztec",
+  ];
   const ZXING_FORMATS_MAP = {
     0: "AZTEC", 1: "CODABAR", 2: "CODE_39", 3: "CODE_93", 4: "CODE_128",
     5: "DATA_MATRIX", 6: "EAN_8", 7: "EAN_13", 8: "ITF", 9: "MAXICODE",
@@ -79,7 +86,20 @@ const Scanner = (() => {
   }
 
   async function startNative() {
-    const detector = new window.BarcodeDetector({ formats: FORMATS });
+    let formats = FORMATS;
+    // Конструктор BarcodeDetector падает с ошибкой, если попросить формат,
+    // который браузер/устройство не поддерживает — поэтому сверяемся
+    // со списком реально доступных форматов перед созданием детектора.
+    if (window.BarcodeDetector.getSupportedFormats) {
+      try {
+        const available = await window.BarcodeDetector.getSupportedFormats();
+        const intersected = FORMATS.filter((f) => available.includes(f));
+        formats = intersected.length ? intersected : available;
+      } catch {
+        // getSupportedFormats недоступен — пробуем с полным списком как есть
+      }
+    }
+    const detector = new window.BarcodeDetector({ formats });
     mode = "native";
     nativeLoop(detector);
   }
@@ -90,8 +110,17 @@ const Scanner = (() => {
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
       ZXing.BarcodeFormat.QR_CODE,
       ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.CODE_93,
+      ZXing.BarcodeFormat.CODABAR,
       ZXing.BarcodeFormat.EAN_13,
       ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.ITF,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.DATA_MATRIX,
+      ZXing.BarcodeFormat.PDF_417,
+      ZXing.BarcodeFormat.AZTEC,
     ]);
     hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
     return new ZXing.BrowserMultiFormatReader(hints, 150);

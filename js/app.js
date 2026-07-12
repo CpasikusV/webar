@@ -25,7 +25,7 @@
 
   const NO_DETECTION_TIMEOUT_MS = 3000;
   const RESCAN_COOLDOWN_MS = 1500;   // не дёргаем API повторно по той же метке слишком часто
-  const PANEL_MAX_AGE_MS = 1200;     // через сколько убрать панель, если метка пропала из кадра
+  const PANEL_MAX_AGE_MS = 2500;     // через сколько убрать панель, если метка пропала из кадра
   const PRUNE_INTERVAL_MS = 400;
 
   // markerId -> timestamp последнего запроса к API
@@ -77,6 +77,16 @@
       return;
     }
     Panel.show(markerId, result.data, { stale: result.stale, staleSince: result.staleSince });
+
+    // Картинку подгружаем отдельно и не блокируем ею основные данные —
+    // на PoC это внешний каталожный API, задержка которого не должна
+    // тормозить показ остатка/статуса (см. ImageApi / worker/image-proxy.js).
+    if (result.data.sku) {
+      ImageApi.getImageUrl(result.data.sku).then((imgUrl) => {
+        if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
+        if (imgUrl) Panel.setImage(markerId, imgUrl);
+      });
+    }
   }
 
   /** @param {Array<{markerId:string, format:string, screenPoint:{x,y}}>} detections */

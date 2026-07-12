@@ -38,7 +38,7 @@ const Panel = (() => {
     entry.el.dataset.loading = "true";
   }
 
-  function show(markerId, data, { stale = false, staleSince = null, image = null } = {}) {
+  function show(markerId, data, { stale = false, staleSince = null } = {}) {
     const entry = active.get(markerId);
     if (!entry) return;
     const el = entry.el;
@@ -62,10 +62,20 @@ const Panel = (() => {
       metaEl.classList.remove("stale");
     }
 
-    const thumbWrap = el.querySelector('[data-field="thumbWrap"]');
-    const thumbImg = el.querySelector('[data-field="thumb"]');
-    if (image) {
-      thumbImg.src = image;
+    // Картинка подгружается отдельно и асинхронно (см. setImage) — здесь
+    // её не трогаем, чтобы повторное сканирование той же метки не гасило
+    // уже показанное превью, пока подгружается новое.
+  }
+
+  /** Устанавливает/обновляет картинку товара, если она уже загружена
+   *  (вызывается отдельно от show(), т.к. приходит с задержкой от ImageApi). */
+  function setImage(markerId, url) {
+    const entry = active.get(markerId);
+    if (!entry) return;
+    const thumbWrap = entry.el.querySelector('[data-field="thumbWrap"]');
+    const thumbImg = entry.el.querySelector('[data-field="thumb"]');
+    if (url) {
+      thumbImg.src = url;
       thumbWrap.hidden = false;
     } else {
       thumbWrap.hidden = true;
@@ -93,10 +103,14 @@ const Panel = (() => {
   }
 
   /** Убирает панели меток, которые не попадали в кадр дольше maxAgeMs
-   *  (метка "потерялась" — камера отвернулась / метка закрыта). */
+   *  (метка "потерялась" — камера отвернулась / метка закрыта).
+   *  Панели, для которых ещё идёт запрос к API (loading), не трогаем —
+   *  иначе результат может прийти уже после удаления карточки и просто
+   *  потеряется, если камера на секунду потеряла метку из кадра. */
   function pruneStale(maxAgeMs = 1200) {
     const now = Date.now();
     for (const [markerId, entry] of active) {
+      if (entry.el.dataset.loading === "true") continue;
       if (now - entry.lastSeenAt > maxAgeMs) remove(markerId);
     }
   }
@@ -109,7 +123,7 @@ const Panel = (() => {
     for (const markerId of [...active.keys()]) remove(markerId);
   }
 
-  return { place, setLoading, show, showError, remove, pruneStale, activeCount, clear };
+  return { place, setLoading, show, showError, setImage, remove, pruneStale, activeCount, clear };
 })();
 
 window.Panel = Panel;

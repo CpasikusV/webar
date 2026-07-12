@@ -65,27 +65,36 @@
     requestTokens.set(markerId, myToken);
 
     Panel.setLoading(markerId);
-    const result = await Api.getCell(markerId);
-    if (requestTokens.get(markerId) !== myToken) return; // пришёл ответ на устаревший запрос
-    if (!Panel.activeCount()) return; // экран уже закрыт/сброшен
+    try {
+      const result = await Api.getCell(markerId);
+      if (requestTokens.get(markerId) !== myToken) return; // пришёл ответ на устаревший запрос
+      if (!Panel.activeCount()) return; // экран уже закрыт/сброшен
 
-    if (!result.ok) {
-      Panel.showError(
-        markerId,
-        result.reason === "not_found" ? "Ячейка не найдена в системе" : "Нет данных: сеть недоступна"
-      );
-      return;
-    }
-    Panel.show(markerId, result.data, { stale: result.stale, staleSince: result.staleSince });
+      if (!result.ok) {
+        Panel.showError(
+          markerId,
+          result.reason === "not_found" ? "Ячейка не найдена в системе" : "Нет данных: сеть недоступна"
+        );
+        return;
+      }
+      Panel.show(markerId, result.data, { stale: result.stale, staleSince: result.staleSince });
 
-    // Картинку подгружаем отдельно и не блокируем ею основные данные —
-    // на PoC это внешний каталожный API, задержка которого не должна
-    // тормозить показ остатка/статуса (см. ImageApi / worker/image-proxy.js).
-    if (result.data.sku) {
-      ImageApi.getImageUrl(result.data.sku).then((imgUrl) => {
-        if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
-        if (imgUrl) Panel.setImage(markerId, imgUrl);
-      });
+      // Картинку подгружаем отдельно и не блокируем ею основные данные —
+      // на PoC это внешний каталожный API, задержка которого не должна
+      // тормозить показ остатка/статуса (см. ImageApi / worker/image-proxy.js).
+      if (result.data.sku && typeof ImageApi !== "undefined") {
+        ImageApi.getImageUrl(result.data.sku)
+          .then((imgUrl) => {
+            if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
+            if (imgUrl) Panel.setImage(markerId, imgUrl);
+          })
+          .catch(() => {}); // картинка необязательна — не мешаем основному сценарию
+      }
+    } catch (err) {
+      // ВРЕМЕННО (для диагностики на устройстве без DevTools): показываем
+      // реальный текст ошибки прямо в карточке, а не тихо проваливаемся.
+      console.error("fetchAndShow failed for", markerId, err);
+      Panel.showError(markerId, `Ошибка: ${err?.message || err}`);
     }
   }
 

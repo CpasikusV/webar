@@ -47,6 +47,7 @@ const Panel = (() => {
     container.innerHTML = "";
     for (const item of items) {
       const node = itemTemplate.content.firstElementChild.cloneNode(true);
+      if (item.sku) node.dataset.sku = item.sku;
       node.querySelector('[data-field="itemName"]').textContent = item.name;
       node.querySelector('[data-field="itemQty"]').textContent = item.qty;
       container.appendChild(node);
@@ -87,20 +88,18 @@ const Panel = (() => {
     // уже показанное превью, пока подгружается новое.
   }
 
-  /** Устанавливает/обновляет картинку товара (только для ячеек с одним
-   *  товаром — для нескольких сразу непонятно, чью фотографию показывать,
-   *  поэтому превью для них не запрашивается, см. app.js). */
-  function setImage(markerId, url) {
+  /** Устанавливает/обновляет фото КОНКРЕТНОГО товара в списке (по SKU),
+   *  а не одно общее фото на всю карточку — под одной меткой может быть
+   *  несколько разных товаров, у каждого своя картинка рядом со строкой. */
+  function setItemImage(markerId, sku, url) {
     const entry = active.get(markerId);
-    if (!entry) return;
-    const thumbWrap = entry.el.querySelector('[data-field="thumbWrap"]');
-    const thumbImg = entry.el.querySelector('[data-field="thumb"]');
-    if (url) {
-      thumbImg.src = url;
-      thumbWrap.hidden = false;
-    } else {
-      thumbWrap.hidden = true;
-    }
+    if (!entry || !url) return;
+    const row = entry.el.querySelector(`.cellpanel__item[data-sku="${CSS.escape(sku)}"]`);
+    if (!row) return;
+    const thumbWrap = row.querySelector('[data-field="itemThumbWrap"]');
+    const thumbImg = row.querySelector('[data-field="itemThumb"]');
+    thumbImg.src = url;
+    thumbWrap.hidden = false;
   }
 
   function showError(markerId, message) {
@@ -144,7 +143,7 @@ const Panel = (() => {
     for (const markerId of [...active.keys()]) remove(markerId);
   }
 
-  return { place, setLoading, show, showError, setImage, remove, pruneStale, activeCount, clear };
+  return { place, setLoading, show, showError, setItemImage, remove, pruneStale, activeCount, clear };
 })();
 
 window.Panel = Panel;

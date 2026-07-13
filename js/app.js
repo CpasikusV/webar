@@ -79,17 +79,19 @@
       }
       Panel.show(markerId, result.data, { stale: result.stale, staleSince: result.staleSince });
 
-      // Картинку показываем только когда под меткой ровно один товар —
-      // если их несколько, непонятно, чьё превью показывать, поэтому
-      // для многотоварных ячеек картинку не запрашиваем вовсе.
-      const singleItem = result.data.items.length === 1 ? result.data.items[0] : null;
-      if (singleItem?.sku && typeof ImageApi !== "undefined") {
-        ImageApi.getImageUrl(singleItem.sku)
-          .then((imgUrl) => {
-            if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
-            if (imgUrl) Panel.setImage(markerId, imgUrl);
-          })
-          .catch(() => {}); // картинка необязательна — не мешаем основному сценарию
+      // Фото — у каждого товара своё, рядом со строкой. Подгружаем не
+      // блокируя показ остальных данных: остаток/статус видны сразу,
+      // картинки подтягиваются следом, по мере готовности.
+      if (typeof ImageApi !== "undefined") {
+        for (const item of result.data.items) {
+          if (!item.sku) continue;
+          ImageApi.getImageUrl(item.sku)
+            .then((imgUrl) => {
+              if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
+              if (imgUrl) Panel.setItemImage(markerId, item.sku, imgUrl);
+            })
+            .catch(() => {}); // картинка необязательна — не мешаем основному сценарию
+        }
       }
     } catch (err) {
       // ВРЕМЕННО (для диагностики на устройстве без DevTools): показываем

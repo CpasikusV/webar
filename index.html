@@ -45,20 +45,24 @@
           <span class="cellpanel__cell" data-field="cell">—</span>
           <span class="cellpanel__badge" data-field="badge">—</span>
         </div>
-        <div class="cellpanel__thumb" data-field="thumbWrap" hidden>
-          <img data-field="thumb" alt="" />
-        </div>
         <div class="cellpanel__items" data-field="items"></div>
         <div class="cellpanel__meta" data-field="meta"></div>
       </div>
     </template>
 
-    <!-- Шаблон одной строки товара внутри cellpanel__items -->
+    <!-- Шаблон одной строки товара внутри cellpanel__items: фото товара
+         слева, название и остаток справа. Фото подгружается асинхронно
+         по SKU (см. Panel.setItemImage в app.js) -->
     <template id="cellItemTemplate">
       <div class="cellpanel__item">
-        <div class="cellpanel__itemName" data-field="itemName">—</div>
-        <div class="cellpanel__itemQty">
-          <span data-field="itemQty">—</span> <span class="cellpanel__unit">шт.</span>
+        <div class="cellpanel__itemThumb" data-field="itemThumbWrap" hidden>
+          <img data-field="itemThumb" alt="" />
+        </div>
+        <div class="cellpanel__itemInfo">
+          <div class="cellpanel__itemName" data-field="itemName">—</div>
+          <div class="cellpanel__itemQty">
+            <span data-field="itemQty">—</span> <span class="cellpanel__unit">шт.</span>
+          </div>
         </div>
       </div>
     </template>

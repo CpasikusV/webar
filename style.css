@@ -141,20 +141,7 @@ button { font-family: inherit; }
 .cellpanel[data-status="error"] { border-color: var(--fg-dim); }
 .cellpanel[data-status="error"] .cellpanel__badge { color: var(--fg-dim); background: rgba(154,165,170,0.14); }
 
-.cellpanel__thumb {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  background: var(--ink);
-  border: 1px solid var(--panel-line);
-}
-.cellpanel__thumb img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-}
+
 .cellpanel__head {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
@@ -185,31 +172,46 @@ button { font-family: inherit; }
 }
 .cellpanel__item {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 .cellpanel__item + .cellpanel__item {
   border-top: 1px solid var(--panel-line);
+}
+.cellpanel__itemThumb {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ink);
+  border: 1px solid var(--panel-line);
+}
+.cellpanel__itemThumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cellpanel__itemInfo {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .cellpanel__itemName {
   font-size: 0.88rem;
   color: var(--fg);
   line-height: 1.3;
-  flex: 1 1 auto;
-  min-width: 0;
+  margin-bottom: 2px;
 }
 .cellpanel__itemQty {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 600;
   font-size: 1.05rem;
-  white-space: nowrap;
-  flex: 0 0 auto;
 }
-/* Единственный товар в ячейке — крупнее, как раньше, для читаемости с 1.5м */
+/* Единственный товар в ячейке — крупнее и с более крупным фото, как раньше */
+.cellpanel[data-multi="false"] .cellpanel__itemThumb { width: 72px; height: 72px; }
 .cellpanel[data-multi="false"] .cellpanel__itemQty { font-size: 1.4rem; }
-.cellpanel[data-multi="false"] .cellpanel__itemName { font-size: 0.95rem; margin-bottom: 2px; }
+.cellpanel[data-multi="false"] .cellpanel__itemName { font-size: 0.95rem; }
 .cellpanel__unit { font-size: 0.85rem; color: var(--fg-dim); font-weight: 400; }
 .cellpanel__meta {
   margin-top: 8px;

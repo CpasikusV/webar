@@ -141,20 +141,6 @@ button { font-family: inherit; }
 .cellpanel[data-status="error"] { border-color: var(--fg-dim); }
 .cellpanel[data-status="error"] .cellpanel__badge { color: var(--fg-dim); background: rgba(154,165,170,0.14); }
 
-.cellpanel__thumb {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  background: var(--ink);
-  border: 1px solid var(--panel-line);
-}
-.cellpanel__thumb img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-}
 .cellpanel__head {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
@@ -179,18 +165,66 @@ button { font-family: inherit; }
 .cellpanel[data-status="blocked"] { border-color: var(--status-block); }
 .cellpanel[data-status="reserved"] { border-color: var(--status-reserve); }
 
-.cellpanel__name {
-  font-size: 0.95rem;
-  color: var(--fg);
-  margin-bottom: 8px;
-  line-height: 1.3;
+/* ---------- Список товаров внутри табло (может быть несколько под
+   одним штрихкодом — см. комментарий в panel.js) ---------- */
+.cellpanel__items {
+  display: flex;
+  flex-direction: column;
+  max-height: 46vh;      /* не даём панели растянуться на весь экран,
+                             если товаров под меткой много */
+  overflow-y: auto;
 }
-.cellpanel__qty {
+.cellpanel__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+.cellpanel__item + .cellpanel__item {
+  border-top: 1px solid var(--panel-line);
+}
+.cellpanel__itemThumb {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;   /* фиксированный размер — раньше картинка
+                                   рендерилась без ограничений и разрывала
+                                   панель на весь экран */
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ink);
+  border: 1px solid var(--panel-line);
+}
+.cellpanel__itemThumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cellpanel__itemInfo {
+  flex: 1 1 auto;
+  min-width: 0;  /* разрешает тексту сжиматься и переноситься, а не
+                     раздвигать панель по ширине */
+}
+.cellpanel__itemName {
+  font-size: 0.82rem;
+  color: var(--fg);
+  line-height: 1.25;
+  margin-bottom: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cellpanel__itemSku {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.6rem; font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--fg-dim);
+  margin-bottom: 2px;
+}
+.cellpanel__itemQty {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem; font-weight: 600;
   line-height: 1;
 }
-.cellpanel__unit { font-size: 0.85rem; color: var(--fg-dim); font-weight: 400; }
+.cellpanel__unit { font-size: 0.72rem; color: var(--fg-dim); font-weight: 400; }
 .cellpanel__meta {
   margin-top: 8px;
   font-size: 0.72rem;

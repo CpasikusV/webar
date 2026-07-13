@@ -54,9 +54,59 @@ const Api = (() => {
    *   if (!res.ok) throw new Error(res.status === 404 ? "not_found" : "network");
    *   return res.json();
    */
+  /**
+   * Симулирует сетевой запрос к ОДНОЙ конкретной mock-базе: задержка
+   * 250–900мс + ~5% шанс сетевой ошибки. Логика та же, что в
+   * mock-api.js:mockFetchCell, но параметризована базой — нужно, чтобы
+   * можно было последовательно перебрать несколько баз (см. lookupCell).
+   * mock-api.js не трогаем: он помечен как автогенерируемый.
+   */
+  function simulateFetch(db, markerId) {
+    return new Promise((resolve, reject) => {
+      const delay = 250 + Math.random() * 650;
+      setTimeout(() => {
+        if (Math.random() < 0.05) {
+          reject(new Error("network"));
+          return;
+        }
+        const record = db[markerId];
+        if (!record) {
+          reject(new Error("not_found"));
+          return;
+        }
+        resolve({ ...record, updatedAt: new Date().toISOString() });
+      }, delay);
+    });
+  }
+
+  /**
+   * Ищет ячейку по очереди во всех подключённых mock-базах: сначала
+   * MOCK_DB (основной ряд, mock-api.js), затем MOCK_DB_01 (ряд 01,
+   * mock-db-01.js — подключается отдельным <script> в index.html).
+   * Добавите ещё один ряд — допишите его сюда же в массив databases.
+   *
+   * Если метка не найдена ни в одной базе — итоговая ошибка "not_found".
+   * Если словили симулированную сетевую ошибку — не перебираем базы
+   * дальше, сразу поднимаем её наверх (иначе одна и та же метка могла бы
+   * "рандомно" отвечать то ошибкой, то данными в зависимости от того,
+   * в какой по счёту базе она лежит).
+   */
+  async function lookupCell(markerId) {
+    const databases = [window.MOCK_DB, window.MOCK_DB_01].filter(Boolean);
+    for (const db of databases) {
+      try {
+        return await simulateFetch(db, markerId);
+      } catch (err) {
+        if (err.message !== "not_found") throw err;
+        // не найдено в этой базе — пробуем следующую
+      }
+    }
+    throw new Error("not_found");
+  }
+
   async function fetchCellFromNetwork(markerId) {
     void ENDPOINT_BASE; void getToken; // используются в реальной реализации выше
-    return window.mockFetchCell(markerId);
+    return lookupCell(markerId);
   }
 
   /**

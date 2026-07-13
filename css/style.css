@@ -185,7 +185,7 @@ button { font-family: inherit; }
 }
 .cellpanel__itemThumb {
   flex: 0 0 auto;
-  width: 44px; height: 44px;   /* фиксированный размер — раньше картинка
+  width: 88px; height: 88px;   /* фиксированный размер — раньше картинка
                                    рендерилась без ограничений и разрывала
                                    панель на весь экран */
   border-radius: 8px;

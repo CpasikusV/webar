@@ -4,12 +4,17 @@
  * Управляет НЕСКОЛЬКИМИ одновременно видимыми AR-табло — по одной на
  * каждую метку, распознанную в текущем кадре. Каждая панель — клон
  * <template id="cellPanelTemplate">, привязанный к markerId.
+ *
+ * Один штрихкод может соответствовать НЕСКОЛЬКИМ товарам одновременно
+ * (см. data/generate-mock-db.py) — поэтому панель рендерит список
+ * товаров (data.items), а не одно название/остаток.
  * -----------------------------------------------------------------------
  */
 
 const Panel = (() => {
   const layer = document.getElementById("panelLayer");
-  const template = document.getElementById("cellPanelTemplate");
+  const panelTemplate = document.getElementById("cellPanelTemplate");
+  const itemTemplate = document.getElementById("cellItemTemplate");
 
   const STATUS_LABEL = { ok: "Свободна", blocked: "Заблокирована", reserved: "В резерве" };
 
@@ -17,7 +22,7 @@ const Panel = (() => {
   const active = new Map();
 
   function createPanel(markerId) {
-    const node = template.content.firstElementChild.cloneNode(true);
+    const node = panelTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.markerId = markerId;
     layer.appendChild(node);
     const entry = { el: node, lastSeenAt: Date.now() };
@@ -38,17 +43,32 @@ const Panel = (() => {
     entry.el.dataset.loading = "true";
   }
 
+  function renderItems(container, items) {
+    container.innerHTML = "";
+    for (const item of items) {
+      const node = itemTemplate.content.firstElementChild.cloneNode(true);
+      node.querySelector('[data-field="itemName"]').textContent = item.name;
+      node.querySelector('[data-field="itemQty"]').textContent = item.qty;
+      container.appendChild(node);
+    }
+  }
+
+  /** @param {{cell:string, status:string, items:Array<{sku,name,qty}>}} data */
   function show(markerId, data, { stale = false, staleSince = null } = {}) {
     const entry = active.get(markerId);
     if (!entry) return;
     const el = entry.el;
     el.dataset.loading = "false";
     el.dataset.status = data.status;
+    el.dataset.multi = data.items.length > 1 ? "true" : "false";
 
     el.querySelector('[data-field="cell"]').textContent = data.cell;
-    el.querySelector('[data-field="badge"]').textContent = STATUS_LABEL[data.status] || data.status;
-    el.querySelector('[data-field="name"]').textContent = data.name;
-    el.querySelector('[data-field="qty"]').textContent = data.qty;
+    el.querySelector('[data-field="badge"]').textContent =
+      data.items.length > 1
+        ? `${STATUS_LABEL[data.status] || data.status} · ${data.items.length} тов.`
+        : STATUS_LABEL[data.status] || data.status;
+
+    renderItems(el.querySelector('[data-field="items"]'), data.items);
 
     const metaEl = el.querySelector('[data-field="meta"]');
     if (stale && staleSince) {
@@ -67,8 +87,9 @@ const Panel = (() => {
     // уже показанное превью, пока подгружается новое.
   }
 
-  /** Устанавливает/обновляет картинку товара, если она уже загружена
-   *  (вызывается отдельно от show(), т.к. приходит с задержкой от ImageApi). */
+  /** Устанавливает/обновляет картинку товара (только для ячеек с одним
+   *  товаром — для нескольких сразу непонятно, чью фотографию показывать,
+   *  поэтому превью для них не запрашивается, см. app.js). */
   function setImage(markerId, url) {
     const entry = active.get(markerId);
     if (!entry) return;
@@ -88,10 +109,10 @@ const Panel = (() => {
     const el = entry.el;
     el.dataset.loading = "false";
     el.dataset.status = "error";
+    el.dataset.multi = "false";
     el.querySelector('[data-field="cell"]').textContent = markerId;
     el.querySelector('[data-field="badge"]').textContent = "Ошибка";
-    el.querySelector('[data-field="name"]').textContent = message;
-    el.querySelector('[data-field="qty"]').textContent = "—";
+    renderItems(el.querySelector('[data-field="items"]'), [{ name: message, qty: "—" }]);
     el.querySelector('[data-field="meta"]').textContent = "";
   }
 

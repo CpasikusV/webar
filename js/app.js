@@ -79,11 +79,12 @@
       }
       Panel.show(markerId, result.data, { stale: result.stale, staleSince: result.staleSince });
 
-      // Картинку подгружаем отдельно и не блокируем ею основные данные —
-      // на PoC это внешний каталожный API, задержка которого не должна
-      // тормозить показ остатка/статуса (см. ImageApi / worker/image-proxy.js).
-      if (result.data.sku && typeof ImageApi !== "undefined") {
-        ImageApi.getImageUrl(result.data.sku)
+      // Картинку показываем только когда под меткой ровно один товар —
+      // если их несколько, непонятно, чьё превью показывать, поэтому
+      // для многотоварных ячеек картинку не запрашиваем вовсе.
+      const singleItem = result.data.items.length === 1 ? result.data.items[0] : null;
+      if (singleItem?.sku && typeof ImageApi !== "undefined") {
+        ImageApi.getImageUrl(singleItem.sku)
           .then((imgUrl) => {
             if (requestTokens.get(markerId) !== myToken) return; // метку уже пересканировали/убрали
             if (imgUrl) Panel.setImage(markerId, imgUrl);

@@ -49,6 +49,7 @@ const Panel = (() => {
       const node = itemTemplate.content.firstElementChild.cloneNode(true);
       if (item.sku) node.dataset.sku = item.sku;
       node.querySelector('[data-field="itemName"]').textContent = item.name;
+      node.querySelector('[data-field="itemSku"]').textContent = item.sku ? `Арт. ${item.sku}` : "";
       node.querySelector('[data-field="itemQty"]').textContent = item.qty;
       container.appendChild(node);
     }

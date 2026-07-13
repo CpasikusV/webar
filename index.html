@@ -35,7 +35,10 @@
          панелей — по одной на каждую распознанную в кадре метку -->
     <div id="panelLayer" class="panellayer"></div>
 
-    <!-- Шаблон одной AR-панели, клонируется в panel.js на каждую метку -->
+    <!-- Шаблон одной AR-панели, клонируется в panel.js на каждую метку.
+         items — контейнер под список товаров: под одним физическим
+         штрихкодом на складе может стоять несколько разных товаров
+         (см. комментарий в data/generate-mock-db.py) -->
     <template id="cellPanelTemplate">
       <div class="cellpanel">
         <div class="cellpanel__head">
@@ -45,11 +48,18 @@
         <div class="cellpanel__thumb" data-field="thumbWrap" hidden>
           <img data-field="thumb" alt="" />
         </div>
-        <div class="cellpanel__name" data-field="name">—</div>
-        <div class="cellpanel__qty">
-          <span data-field="qty">—</span> <span class="cellpanel__unit">шт.</span>
-        </div>
+        <div class="cellpanel__items" data-field="items"></div>
         <div class="cellpanel__meta" data-field="meta"></div>
+      </div>
+    </template>
+
+    <!-- Шаблон одной строки товара внутри cellpanel__items -->
+    <template id="cellItemTemplate">
+      <div class="cellpanel__item">
+        <div class="cellpanel__itemName" data-field="itemName">—</div>
+        <div class="cellpanel__itemQty">
+          <span data-field="itemQty">—</span> <span class="cellpanel__unit">шт.</span>
+        </div>
       </div>
     </template>
 
@@ -96,11 +106,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 
   <!-- Логика приложения -->
-<script src="js/mock-api.js"></script>
-<script src="js/api.js"></script>
-<script src="js/image-api.js"></script>
-<script src="js/scanner.js"></script>
-<script src="js/panel.js"></script>
-<script src="js/app.js"></script>
+  <script src="js/mock-api.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/image-api.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

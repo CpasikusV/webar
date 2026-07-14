@@ -72,8 +72,8 @@ const Panel = (() => {
     );
   }
 
-  const COLLISION_STEP = 14;
-  const COLLISION_RESOLVE_INTERVAL_MS = 220; // не пересчитываем чаще, чем успевает доиграть CSS-переход — иначе карточки дёргаются
+  const COLLISION_STEP = window.APP_CONFIG.COLLISION_STEP_PX;
+  const COLLISION_RESOLVE_INTERVAL_MS = window.APP_CONFIG.COLLISION_RESOLVE_INTERVAL_MS;
   let lastCollisionResolveAt = 0;
 
   /**

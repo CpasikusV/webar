@@ -23,10 +23,12 @@
   const manualCancel = document.getElementById("manualCancel");
   const manualSubmit = document.getElementById("manualSubmit");
 
-  const NO_DETECTION_TIMEOUT_MS = 3000;
-  const RESCAN_COOLDOWN_MS = 1500;   // не дёргаем API повторно по той же метке слишком часто
-  const PANEL_MAX_AGE_MS = 2500;     // через сколько убрать панель, если метка пропала из кадра
-  const PRUNE_INTERVAL_MS = 400;
+  const {
+    NO_DETECTION_TIMEOUT_MS,
+    RESCAN_COOLDOWN_MS,
+    PANEL_MAX_AGE_MS,
+    PRUNE_INTERVAL_MS,
+  } = window.APP_CONFIG;
 
   // markerId -> timestamp последнего запроса к API
   const lastRequestAt = new Map();

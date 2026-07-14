@@ -21,38 +21,27 @@ const Panel = (() => {
   // markerId -> { el, lastSeenAt }
   const active = new Map();
 
-  // Если несколько меток видно одновременно, тап по карточке выделяет её
-  // (поднимает поверх остальных и разворачивает), а остальные гаснут и
-  // временно не реагируют на тап, чтобы не мешали читать выбранную.
-  // Повторный тап по уже выбранной карточке снимает выделение.
-  let selectedMarkerId = null;
-
-  function applySelectionState() {
-    const onlyOne = active.size <= 1;
-    for (const [markerId, entry] of active) {
-      const isSelected = selectedMarkerId === markerId;
-      const isDimmed = selectedMarkerId !== null && !isSelected;
-      entry.el.dataset.selected = onlyOne ? "false" : String(isSelected);
-      entry.el.dataset.dimmed = String(isDimmed && !onlyOne);
-    }
-  }
-
-  function selectPanel(markerId) {
-    selectedMarkerId = selectedMarkerId === markerId ? null : markerId;
-    applySelectionState();
+  // Свёрнутая карточка показывает только фото товара(ов), без текста.
+  // Тап по ней — разворачивает и показывает остаток/статус/артикул,
+  // повторный тап — сворачивает обратно. Каждая карточка разворачивается
+  // независимо от остальных.
+  function toggleExpand(markerId) {
+    const entry = active.get(markerId);
+    if (!entry) return;
+    entry.el.dataset.expanded = entry.el.dataset.expanded === "true" ? "false" : "true";
   }
 
   function createPanel(markerId) {
     const node = panelTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.markerId = markerId;
+    node.dataset.expanded = "false"; // по умолчанию свёрнута — видно только фото
     node.addEventListener("click", (e) => {
       e.stopPropagation();
-      selectPanel(markerId);
+      toggleExpand(markerId);
     });
     layer.appendChild(node);
     const entry = { el: node, lastSeenAt: Date.now(), collisionOffset: 0 };
     active.set(markerId, entry);
-    applySelectionState();
     return entry;
   }
 
@@ -63,7 +52,7 @@ const Panel = (() => {
     entry.el.style.top = `${screenPoint.y}px`;
   }
 
-  function rectsOverlap(a, b, pad = 6) {
+  function rectsOverlap(a, b, pad = window.APP_CONFIG.COLLISION_PADDING_PX) {
     return !(
       a.right + pad < b.left ||
       a.left - pad > b.right ||
@@ -101,7 +90,6 @@ const Panel = (() => {
     lastCollisionResolveAt = now;
 
     const entries = [...active.values()]
-      .filter((entry) => entry.el.dataset.dimmed !== "true") // погашенные при выборе не мешают — не поднимаем их
       .sort((a, b) => (parseFloat(a.el.style.left) || 0) - (parseFloat(b.el.style.left) || 0));
 
     const placedRects = [];
@@ -187,16 +175,16 @@ const Panel = (() => {
 
   /** Устанавливает/обновляет фото КОНКРЕТНОГО товара в списке (по SKU),
    *  а не одно общее фото на всю карточку — под одной меткой может быть
-   *  несколько разных товаров, у каждого своя картинка рядом со строкой. */
+   *  несколько разных товаров, у каждого своя картинка. Обёртка фото
+   *  видна всегда (служит нейтральной заглушкой, пока не пришло реальное
+   *  изображение) — здесь просто подставляем src, когда оно готово. */
   function setItemImage(markerId, sku, url) {
     const entry = active.get(markerId);
     if (!entry || !url) return;
     const row = entry.el.querySelector(`.cellpanel__item[data-sku="${CSS.escape(sku)}"]`);
     if (!row) return;
-    const thumbWrap = row.querySelector('[data-field="itemThumbWrap"]');
     const thumbImg = row.querySelector('[data-field="itemThumb"]');
     thumbImg.src = url;
-    thumbWrap.hidden = false;
   }
 
   function showError(markerId, message) {
@@ -217,8 +205,6 @@ const Panel = (() => {
     if (!entry) return;
     entry.el.remove();
     active.delete(markerId);
-    if (selectedMarkerId === markerId) selectedMarkerId = null;
-    applySelectionState();
   }
 
   /** Убирает панели меток, которые не попадали в кадр дольше maxAgeMs
@@ -239,7 +225,6 @@ const Panel = (() => {
   }
 
   function clear() {
-    selectedMarkerId = null;
     for (const markerId of [...active.keys()]) remove(markerId);
   }
 

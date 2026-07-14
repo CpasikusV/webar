@@ -125,7 +125,10 @@ button { font-family: inherit; }
 .cellpanel {
   position: absolute;
   left: 50%; top: 50%;
-  transform: translate(-50%, -105%);
+  --collision-offset: 0px;  /* доп. вертикальный сдвиг, чтобы карточки не
+                                перекрывали друг друга — считает Panel.js
+                                (resolveCollisions), см. panel.js */
+  transform: translate(-50%, calc(-105% + var(--collision-offset)));
   width: min(64vw, 280px);
   background: rgba(20, 24, 27, 0.92);
   border: 1px solid var(--panel-line);
@@ -152,14 +155,14 @@ button { font-family: inherit; }
 .cellpanel[data-selected="true"] {
   z-index: 6;
   width: min(78vw, 320px);
-  transform: translate(-50%, -105%) scale(1.04);
+  transform: translate(-50%, calc(-105% + var(--collision-offset))) scale(1.04);
   border-color: var(--accent);
   box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--accent-dim);
 }
 .cellpanel[data-dimmed="true"] {
   opacity: 0.32;
   filter: grayscale(0.4);
-  transform: translate(-50%, -105%) scale(0.96);
+  transform: translate(-50%, calc(-105% + var(--collision-offset))) scale(0.96);
 }
 .cellpanel[data-dimmed="true"]:active {
   opacity: 0.5;

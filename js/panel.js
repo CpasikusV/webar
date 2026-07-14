@@ -50,7 +50,7 @@ const Panel = (() => {
       selectPanel(markerId);
     });
     layer.appendChild(node);
-    const entry = { el: node, lastSeenAt: Date.now() };
+    const entry = { el: node, lastSeenAt: Date.now(), collisionOffset: 0 };
     active.set(markerId, entry);
     applySelectionState();
     return entry;
@@ -72,6 +72,10 @@ const Panel = (() => {
     );
   }
 
+  const COLLISION_STEP = 14;
+  const COLLISION_RESOLVE_INTERVAL_MS = 220; // не пересчитываем чаще, чем успевает доиграть CSS-переход — иначе карточки дёргаются
+  let lastCollisionResolveAt = 0;
+
   /**
    * Если несколько карточек видны одновременно (метки рядом друг с
    * другом на кадре), они по умолчанию рисуются каждая от своей точки
@@ -81,24 +85,47 @@ const Panel = (() => {
    * через CSS-переменную --collision-offset (см. style.css), не трогая
    * сам left/top (он всё ещё указывает на реальную метку).
    *
+   * Троттлинг + шаг за раз (а не "сброс в 0 и заново подбор" каждый
+   * кадр) — чтобы движение было плавным: величина сдвига меняется не
+   * больше чем на COLLISION_STEP за один вызов, и вызовы не чаще, чем
+   * раз в COLLISION_RESOLVE_INTERVAL_MS. Иначе из-за дрожания координат
+   * метки между кадрами карточка каждый раз пересчитывалась с нуля и
+   * "скакала" быстрее, чем успевал доиграть transition.
+   *
    * Сортировка по X даёт стабильный порядок разрешения — иначе при
-   * равном перекрытии карточки могли бы "дрожать" каждый кадр, споря,
-   * кто кого сдвигает.
+   * равном перекрытии карточки могли бы спорить, кто кого сдвигает.
    */
   function resolveCollisions() {
+    const now = Date.now();
+    if (now - lastCollisionResolveAt < COLLISION_RESOLVE_INTERVAL_MS) return;
+    lastCollisionResolveAt = now;
+
     const entries = [...active.values()]
       .filter((entry) => entry.el.dataset.dimmed !== "true") // погашенные при выборе не мешают — не поднимаем их
       .sort((a, b) => (parseFloat(a.el.style.left) || 0) - (parseFloat(b.el.style.left) || 0));
 
     const placedRects = [];
     for (const entry of entries) {
-      entry.el.style.setProperty("--collision-offset", "0px");
+      // Пробуем на один шаг ОСЛАБИТЬ сдвиг — если места уже достаточно,
+      // карточка постепенно возвращается на своё место (а не прыгает
+      // назад мгновенно, когда соседняя метка уходит из кадра).
+      if (entry.collisionOffset < 0) {
+        const relaxed = entry.collisionOffset + COLLISION_STEP;
+        entry.el.style.setProperty("--collision-offset", `${relaxed}px`);
+        const relaxedRect = entry.el.getBoundingClientRect();
+        if (!placedRects.some((r) => rectsOverlap(relaxedRect, r))) {
+          entry.collisionOffset = relaxed;
+        } else {
+          entry.el.style.setProperty("--collision-offset", `${entry.collisionOffset}px`);
+        }
+      }
+
+      // Если всё ещё пересекается — добавляем ещё по шагу, пока не разойдётся.
       let rect = entry.el.getBoundingClientRect();
-      let offset = 0;
       let guard = 0;
       while (placedRects.some((r) => rectsOverlap(rect, r)) && guard < 20) {
-        offset -= 14; // приподнимаем ещё немного, пока не разойдутся
-        entry.el.style.setProperty("--collision-offset", `${offset}px`);
+        entry.collisionOffset -= COLLISION_STEP;
+        entry.el.style.setProperty("--collision-offset", `${entry.collisionOffset}px`);
         rect = entry.el.getBoundingClientRect();
         guard++;
       }

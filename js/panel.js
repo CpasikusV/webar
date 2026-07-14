@@ -21,12 +21,38 @@ const Panel = (() => {
   // markerId -> { el, lastSeenAt }
   const active = new Map();
 
+  // Если несколько меток видно одновременно, тап по карточке выделяет её
+  // (поднимает поверх остальных и разворачивает), а остальные гаснут и
+  // временно не реагируют на тап, чтобы не мешали читать выбранную.
+  // Повторный тап по уже выбранной карточке снимает выделение.
+  let selectedMarkerId = null;
+
+  function applySelectionState() {
+    const onlyOne = active.size <= 1;
+    for (const [markerId, entry] of active) {
+      const isSelected = selectedMarkerId === markerId;
+      const isDimmed = selectedMarkerId !== null && !isSelected;
+      entry.el.dataset.selected = onlyOne ? "false" : String(isSelected);
+      entry.el.dataset.dimmed = String(isDimmed && !onlyOne);
+    }
+  }
+
+  function selectPanel(markerId) {
+    selectedMarkerId = selectedMarkerId === markerId ? null : markerId;
+    applySelectionState();
+  }
+
   function createPanel(markerId) {
     const node = panelTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.markerId = markerId;
+    node.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectPanel(markerId);
+    });
     layer.appendChild(node);
     const entry = { el: node, lastSeenAt: Date.now() };
     active.set(markerId, entry);
+    applySelectionState();
     return entry;
   }
 
@@ -35,6 +61,49 @@ const Panel = (() => {
     entry.lastSeenAt = Date.now();
     entry.el.style.left = `${screenPoint.x}px`;
     entry.el.style.top = `${screenPoint.y}px`;
+  }
+
+  function rectsOverlap(a, b, pad = 6) {
+    return !(
+      a.right + pad < b.left ||
+      a.left - pad > b.right ||
+      a.bottom + pad < b.top ||
+      a.top - pad > b.bottom
+    );
+  }
+
+  /**
+   * Если несколько карточек видны одновременно (метки рядом друг с
+   * другом на кадре), они по умолчанию рисуются каждая от своей точки
+   * независимо и могут наехать друг на друга. Вызывается после того,
+   * как place() отработал для ВСЕХ меток текущего кадра (см. app.js:
+   * handleDetections) — раздвигает пересекающиеся карточки по вертикали
+   * через CSS-переменную --collision-offset (см. style.css), не трогая
+   * сам left/top (он всё ещё указывает на реальную метку).
+   *
+   * Сортировка по X даёт стабильный порядок разрешения — иначе при
+   * равном перекрытии карточки могли бы "дрожать" каждый кадр, споря,
+   * кто кого сдвигает.
+   */
+  function resolveCollisions() {
+    const entries = [...active.values()]
+      .filter((entry) => entry.el.dataset.dimmed !== "true") // погашенные при выборе не мешают — не поднимаем их
+      .sort((a, b) => (parseFloat(a.el.style.left) || 0) - (parseFloat(b.el.style.left) || 0));
+
+    const placedRects = [];
+    for (const entry of entries) {
+      entry.el.style.setProperty("--collision-offset", "0px");
+      let rect = entry.el.getBoundingClientRect();
+      let offset = 0;
+      let guard = 0;
+      while (placedRects.some((r) => rectsOverlap(rect, r)) && guard < 20) {
+        offset -= 14; // приподнимаем ещё немного, пока не разойдутся
+        entry.el.style.setProperty("--collision-offset", `${offset}px`);
+        rect = entry.el.getBoundingClientRect();
+        guard++;
+      }
+      placedRects.push(rect);
+    }
   }
 
   function setLoading(markerId) {
@@ -121,6 +190,8 @@ const Panel = (() => {
     if (!entry) return;
     entry.el.remove();
     active.delete(markerId);
+    if (selectedMarkerId === markerId) selectedMarkerId = null;
+    applySelectionState();
   }
 
   /** Убирает панели меток, которые не попадали в кадр дольше maxAgeMs
@@ -141,10 +212,11 @@ const Panel = (() => {
   }
 
   function clear() {
+    selectedMarkerId = null;
     for (const markerId of [...active.keys()]) remove(markerId);
   }
 
-  return { place, setLoading, show, showError, setItemImage, remove, pruneStale, activeCount, clear };
+  return { place, setLoading, show, showError, setItemImage, remove, pruneStale, activeCount, clear, resolveCollisions };
 })();
 
 window.Panel = Panel;

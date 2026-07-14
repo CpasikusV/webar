@@ -122,6 +122,7 @@
       lastRequestAt.set(d.markerId, now);
       fetchAndShow(d.markerId);
     }
+    Panel.resolveCollisions(); // раздвигаем карточки, если метки в кадре расположены близко друг к другу
 
     armFallbackTimer();
   }

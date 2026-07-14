@@ -137,7 +137,7 @@ button { font-family: inherit; }
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 30px rgba(0,0,0,0.45);
   transition: left 0.12s linear, top 0.12s linear, opacity 0.15s ease-out,
-              transform 0.15s ease-out, filter 0.15s ease-out, width 0.15s ease-out;
+              transform 0.22s ease-out, filter 0.15s ease-out, width 0.15s ease-out;
   pointer-events: auto;   /* .panellayer выключает pointer-events для всего
                               слоя, но сама карточка должна ловить тап —
                               иначе выделение работать не будет */

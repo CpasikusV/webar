@@ -125,7 +125,7 @@ button { font-family: inherit; }
 .cellpanel {
   position: absolute;
   left: 50%; top: 50%;
-  transform: translate(-50%, -140%);
+  transform: translate(-50%, -105%);
   width: min(64vw, 280px);
   background: rgba(20, 24, 27, 0.92);
   border: 1px solid var(--panel-line);
@@ -133,7 +133,12 @@ button { font-family: inherit; }
   padding: 12px 14px 10px;
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 30px rgba(0,0,0,0.45);
-  transition: left 0.12s linear, top 0.12s linear, opacity 0.15s ease-out;
+  transition: left 0.12s linear, top 0.12s linear, opacity 0.15s ease-out,
+              transform 0.15s ease-out, filter 0.15s ease-out, width 0.15s ease-out;
+  pointer-events: auto;   /* .panellayer выключает pointer-events для всего
+                              слоя, но сама карточка должна ловить тап —
+                              иначе выделение работать не будет */
+  cursor: pointer;
 }
 .cellpanel[data-loading="true"] {
   opacity: 0.55;
@@ -141,8 +146,28 @@ button { font-family: inherit; }
 .cellpanel[data-status="error"] { border-color: var(--fg-dim); }
 .cellpanel[data-status="error"] .cellpanel__badge { color: var(--fg-dim); background: rgba(154,165,170,0.14); }
 
+/* Тап по карточке при нескольких видимых метках: выбранная поднимается
+   поверх остальных, остальные гаснут и визуально "неактивны" (но всё
+   ещё кликабельны — тап по погашенной карточке переключает выбор). */
+.cellpanel[data-selected="true"] {
+  z-index: 6;
+  width: min(78vw, 320px);
+  transform: translate(-50%, -105%) scale(1.04);
+  border-color: var(--accent);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--accent-dim);
+}
+.cellpanel[data-dimmed="true"] {
+  opacity: 0.32;
+  filter: grayscale(0.4);
+  transform: translate(-50%, -105%) scale(0.96);
+}
+.cellpanel[data-dimmed="true"]:active {
+  opacity: 0.5;
+}
+
 .cellpanel__head {
   display: flex; align-items: center; justify-content: space-between;
+
   margin-bottom: 6px;
 }
 .cellpanel__cell {
@@ -185,7 +210,7 @@ button { font-family: inherit; }
 }
 .cellpanel__itemThumb {
   flex: 0 0 auto;
-  width: 50px; height: 120px;   /* фиксированный размер — раньше картинка
+  width: 44px; height: 44px;   /* фиксированный размер — раньше картинка
                                    рендерилась без ограничений и разрывала
                                    панель на весь экран */
   border-radius: 8px;

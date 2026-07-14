@@ -141,6 +141,7 @@ button { font-family: inherit; }
 .cellpanel[data-status="error"] { border-color: var(--fg-dim); }
 .cellpanel[data-status="error"] .cellpanel__badge { color: var(--fg-dim); background: rgba(154,165,170,0.14); }
 
+
 .cellpanel__head {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
@@ -165,66 +166,60 @@ button { font-family: inherit; }
 .cellpanel[data-status="blocked"] { border-color: var(--status-block); }
 .cellpanel[data-status="reserved"] { border-color: var(--status-reserve); }
 
-/* ---------- Список товаров внутри табло (может быть несколько под
-   одним штрихкодом — см. комментарий в panel.js) ---------- */
 .cellpanel__items {
   display: flex;
   flex-direction: column;
-  max-height: 46vh;      /* не даём панели растянуться на весь экран,
-                             если товаров под меткой много */
-  overflow-y: auto;
 }
 .cellpanel__item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 0;
+  padding: 8px 0;
 }
 .cellpanel__item + .cellpanel__item {
   border-top: 1px solid var(--panel-line);
 }
 .cellpanel__itemThumb {
   flex: 0 0 auto;
-  width: 44px; height: 44px;   /* фиксированный размер — раньше картинка
-                                   рендерилась без ограничений и разрывала
-                                   панель на весь экран */
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--ink);
   border: 1px solid var(--panel-line);
 }
 .cellpanel__itemThumb img {
-  width: 50%; height: 50%;
+  width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
 .cellpanel__itemInfo {
   flex: 1 1 auto;
-  min-width: 0;  /* разрешает тексту сжиматься и переноситься, а не
-                     раздвигать панель по ширине */
+  min-width: 0;
 }
 .cellpanel__itemName {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--fg);
-  line-height: 1.25;
+  line-height: 1.3;
   margin-bottom: 2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .cellpanel__itemSku {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--fg-dim);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 .cellpanel__itemQty {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1rem; font-weight: 600;
-  line-height: 1;
+  font-weight: 600;
+  font-size: 1.05rem;
 }
-.cellpanel__unit { font-size: 0.72rem; color: var(--fg-dim); font-weight: 400; }
+/* Единственный товар в ячейке — крупнее и с более крупным фото, как раньше */
+.cellpanel[data-multi="false"] .cellpanel__itemThumb { width: 72px; height: 72px; }
+.cellpanel[data-multi="false"] .cellpanel__itemQty { font-size: 1.4rem; }
+.cellpanel[data-multi="false"] .cellpanel__itemName { font-size: 0.95rem; }
+.cellpanel[data-multi="false"] .cellpanel__itemSku { font-size: 0.76rem; }
+.cellpanel__unit { font-size: 0.85rem; color: var(--fg-dim); font-weight: 400; }
 .cellpanel__meta {
   margin-top: 8px;
   font-size: 0.72rem;

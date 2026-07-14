@@ -122,6 +122,9 @@ button { font-family: inherit; }
 }
 
 /* ---------- Табло ячейки (AR-панель) ---------- */
+/* По умолчанию карточка СВЁРНУТА — видно только фото товара(ов), без
+   текста (см. [data-expanded="false"] ниже). Тап по ней разворачивает
+   и показывает остаток/статус/артикул ([data-expanded="true"]). */
 .cellpanel {
   position: absolute;
   left: 50%; top: 50%;
@@ -129,19 +132,19 @@ button { font-family: inherit; }
                                 перекрывали друг друга — считает Panel.js
                                 (resolveCollisions), см. panel.js */
   transform: translate(-50%, calc(var(--panel-offset-y) + var(--collision-offset)));
-  width: min(var(--panel-width-vw), var(--panel-width-max));
   background: rgba(20, 24, 27, 0.92);
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 12px 14px 10px;
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 30px rgba(0,0,0,0.45);
   transition: left 0.12s linear, top 0.12s linear, opacity 0.15s ease-out,
-              transform 0.22s ease-out, filter 0.15s ease-out, width 0.15s ease-out;
+              transform 0.22s ease-out, filter 0.15s ease-out,
+              width 0.15s ease-out, padding 0.15s ease-out;
   pointer-events: auto;   /* .panellayer выключает pointer-events для всего
                               слоя, но сама карточка должна ловить тап —
-                              иначе выделение работать не будет */
+                              иначе разворачивание работать не будет */
   cursor: pointer;
+  overflow: hidden;   /* чтобы фото не вылезало за скруглённые углы в свёрнутом виде */
 }
 .cellpanel[data-loading="true"] {
   opacity: 0.55;
@@ -149,23 +152,45 @@ button { font-family: inherit; }
 .cellpanel[data-status="error"] { border-color: var(--fg-dim); }
 .cellpanel[data-status="error"] .cellpanel__badge { color: var(--fg-dim); background: rgba(154,165,170,0.14); }
 
-/* Тап по карточке при нескольких видимых метках: выбранная поднимается
-   поверх остальных, остальные гаснут и визуально "неактивны" (но всё
-   ещё кликабельны — тап по погашенной карточке переключает выбор). */
-.cellpanel[data-selected="true"] {
+/* ---------- Свёрнутое состояние (по умолчанию): только фото ---------- */
+.cellpanel[data-expanded="false"] {
+  padding: 5px;
+  z-index: 4;
+}
+.cellpanel[data-expanded="false"] .cellpanel__head,
+.cellpanel[data-expanded="false"] .cellpanel__itemInfo,
+.cellpanel[data-expanded="false"] .cellpanel__meta {
+  display: none;   /* весь текст скрыт — виден только ряд фото ниже */
+}
+.cellpanel[data-expanded="false"] .cellpanel__items {
+  flex-direction: row;
+  max-height: none;
+  overflow: visible;
+  gap: 4px;
+}
+.cellpanel[data-expanded="false"] .cellpanel__item {
+  padding: 0;
+}
+.cellpanel[data-expanded="false"] .cellpanel__item + .cellpanel__item {
+  border-top: none;
+}
+.cellpanel[data-expanded="false"] .cellpanel__itemThumb {
+  width: var(--panel-collapsed-thumb-size);
+  height: var(--panel-collapsed-thumb-size);
+  border-radius: 10px;
+}
+/* Если товаров под меткой много — показываем не больше 3 фото в
+   свёрнутом виде, иначе получится "простыня" из картинок; полный
+   список всё равно будет виден после разворота. */
+.cellpanel[data-expanded="false"] .cellpanel__item:nth-child(n+4) {
+  display: none;
+}
+
+/* ---------- Развёрнутое состояние: полная информация (после тапа) ---------- */
+.cellpanel[data-expanded="true"] {
   z-index: 6;
-  width: min(var(--panel-width-selected-vw), var(--panel-width-selected-max));
-  transform: translate(-50%, calc(var(--panel-offset-y) + var(--collision-offset))) scale(1.04);
-  border-color: var(--accent);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--accent-dim);
-}
-.cellpanel[data-dimmed="true"] {
-  opacity: 0.32;
-  filter: grayscale(0.4);
-  transform: translate(-50%, calc(var(--panel-offset-y) + var(--collision-offset))) scale(0.96);
-}
-.cellpanel[data-dimmed="true"]:active {
-  opacity: 0.5;
+  width: min(var(--panel-width-vw), var(--panel-width-max));
+  padding: 12px 14px 10px;
 }
 
 .cellpanel__head {

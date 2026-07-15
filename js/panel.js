@@ -45,11 +45,33 @@ const Panel = (() => {
     return entry;
   }
 
+  /**
+   * Позиция метки на кадре иногда "дёргается" на один кадр — блик,
+   * частичное перекрытие штрихкода рукой/товаром, шевеление камеры
+   * дают детектору неверные границы бокса, и центр метки на мгновение
+   * прыгает в сторону (в т.ч. может "улететь" далеко от реального
+   * места). Раньше карточка следовала за КАЖДОЙ сырой точкой один в
+   * один — отсюда и рывки. Сглаживаем: реальная позиция карточки едет
+   * не прямо в новую точку, а только на часть пути к ней за кадр
+   * (POSITION_SMOOTHING из config.js) — один плохой кадр почти не
+   * влияет, а настоящее движение метки всё равно уверенно "догоняется"
+   * за несколько кадров подряд.
+   */
   function place(markerId, screenPoint) {
     const entry = active.get(markerId) || createPanel(markerId);
     entry.lastSeenAt = Date.now();
-    entry.el.style.left = `${screenPoint.x}px`;
-    entry.el.style.top = `${screenPoint.y}px`;
+
+    const k = window.APP_CONFIG.POSITION_SMOOTHING;
+    if (!entry.smoothedPoint) {
+      entry.smoothedPoint = { x: screenPoint.x, y: screenPoint.y };
+    } else {
+      entry.smoothedPoint = {
+        x: entry.smoothedPoint.x + (screenPoint.x - entry.smoothedPoint.x) * k,
+        y: entry.smoothedPoint.y + (screenPoint.y - entry.smoothedPoint.y) * k,
+      };
+    }
+    entry.el.style.left = `${entry.smoothedPoint.x}px`;
+    entry.el.style.top = `${entry.smoothedPoint.y}px`;
   }
 
   function rectsOverlap(a, b, pad = window.APP_CONFIG.COLLISION_PADDING_PX) {

@@ -14,7 +14,7 @@
   --status-block-bg: rgba(255, 93, 93, 0.14);
   --status-reserve: #F5C244;
   --status-reserve-bg: rgba(245, 194, 68, 0.14);
-  --radius: 14px;
+  --radius: var(--panel-radius, 14px);  /* значение — в css/config.css */
   font-size: 16px;
 }
 
@@ -135,11 +135,12 @@ button { font-family: inherit; }
   background: rgba(20, 24, 27, 0.92);
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--panel-blur-px));
   box-shadow: 0 8px 30px rgba(0,0,0,0.45);
-  transition: left 0.12s linear, top 0.12s linear, opacity 0.15s ease-out,
-              transform 0.22s ease-out, filter 0.15s ease-out,
-              width 0.15s ease-out, padding 0.15s ease-out;
+  transition: left var(--transition-position) linear, top var(--transition-position) linear,
+              opacity var(--transition-fade) ease-out, transform var(--transition-expand) ease-out,
+              filter var(--transition-fade) ease-out, width var(--transition-fade) ease-out,
+              padding var(--transition-fade) ease-out;
   pointer-events: auto;   /* .panellayer выключает pointer-events для всего
                               слоя, но сама карточка должна ловить тап —
                               иначе разворачивание работать не будет */

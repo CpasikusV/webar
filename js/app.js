@@ -23,12 +23,10 @@
   const manualCancel = document.getElementById("manualCancel");
   const manualSubmit = document.getElementById("manualSubmit");
 
-  const {
-    NO_DETECTION_TIMEOUT_MS,
-    RESCAN_COOLDOWN_MS,
-    PANEL_MAX_AGE_MS,
-    PRUNE_INTERVAL_MS,
-  } = window.APP_CONFIG;
+  // PRUNE_INTERVAL_MS — читается один раз при старте (см. startCamera):
+  // это интервал setInterval, для "живого" изменения пришлось бы
+  // пересоздавать сам таймер, а не просто перечитывать число.
+  const { PRUNE_INTERVAL_MS } = window.APP_CONFIG;
 
   // markerId -> timestamp последнего запроса к API
   const lastRequestAt = new Map();
@@ -59,7 +57,7 @@
         fallbackChip.hidden = false;
         setHint("Метки не найдены в кадре");
       }
-    }, NO_DETECTION_TIMEOUT_MS);
+    }, window.APP_CONFIG.NO_DETECTION_TIMEOUT_MS);
   }
 
   async function fetchAndShow(markerId) {
@@ -120,7 +118,7 @@
       Panel.place(d.markerId, d.screenPoint);
 
       const last = lastRequestAt.get(d.markerId) || 0;
-      if (now - last < RESCAN_COOLDOWN_MS) continue; // уже недавно запрашивали — не дублируем
+      if (now - last < window.APP_CONFIG.RESCAN_COOLDOWN_MS) continue; // уже недавно запрашивали — не дублируем
       lastRequestAt.set(d.markerId, now);
       fetchAndShow(d.markerId);
     }
@@ -168,7 +166,7 @@
       stage.hidden = false;
       singleModeNotice.hidden = mode !== "zxing";
       armFallbackTimer();
-      pruneInterval = setInterval(() => Panel.pruneStale(PANEL_MAX_AGE_MS), PRUNE_INTERVAL_MS);
+      pruneInterval = setInterval(() => Panel.pruneStale(window.APP_CONFIG.PANEL_MAX_AGE_MS), PRUNE_INTERVAL_MS);
     } catch (err) {
       startBtn.disabled = false;
       gateError.hidden = false;

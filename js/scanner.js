@@ -82,7 +82,7 @@ const Scanner = (() => {
     } catch (e) {
       // detect() может изредка падать на "битом" кадре — просто пропускаем его
     }
-    loopHandle = setTimeout(() => nativeLoop(detector), 180);
+    loopHandle = setTimeout(() => nativeLoop(detector), window.APP_CONFIG.SCAN_INTERVAL_MS);
   }
 
   async function startNative() {
@@ -123,7 +123,7 @@ const Scanner = (() => {
       ZXing.BarcodeFormat.AZTEC,
     ]);
     hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    return new ZXing.BrowserMultiFormatReader(hints, 150);
+    return new ZXing.BrowserMultiFormatReader(hints, window.APP_CONFIG.ZXING_SCAN_INTERVAL_MS);
   }
 
   async function startZxing() {

@@ -83,8 +83,10 @@ const Panel = (() => {
     );
   }
 
-  const COLLISION_STEP = window.APP_CONFIG.COLLISION_STEP_PX;
-  const COLLISION_RESOLVE_INTERVAL_MS = window.APP_CONFIG.COLLISION_RESOLVE_INTERVAL_MS;
+  // Читаем window.APP_CONFIG.* заново при КАЖДОМ вызове (не кэшируем в
+  // константы при загрузке файла) — чтобы значения можно было менять на
+  // лету, без перезагрузки страницы (этим пользуется страница-демо
+  // config-guide.html).
   let lastCollisionResolveAt = 0;
 
   /**
@@ -108,19 +110,34 @@ const Panel = (() => {
    */
   function resolveCollisions() {
     const now = Date.now();
-    if (now - lastCollisionResolveAt < COLLISION_RESOLVE_INTERVAL_MS) return;
+    if (now - lastCollisionResolveAt < window.APP_CONFIG.COLLISION_RESOLVE_INTERVAL_MS) return;
     lastCollisionResolveAt = now;
 
-    const entries = [...active.values()]
+    const all = [...active.values()];
+    // Развёрнутую карточку пользователь сейчас читает — двигать её при
+    // столкновении не нужно (раньше "улетала" сама, если рядом
+    // появлялась новая метка). Она становится неподвижным "якорем":
+    // офсет всегда сбрасывается в 0, её саму никто не толкает.
+    // Свёрнутые карточки (просто фото) при столкновении обходят и её,
+    // и друг друга — ждут рядом, не наезжая.
+    const anchored = all.filter((entry) => entry.el.dataset.expanded === "true");
+    const movable = all
+      .filter((entry) => entry.el.dataset.expanded !== "true")
       .sort((a, b) => (parseFloat(a.el.style.left) || 0) - (parseFloat(b.el.style.left) || 0));
 
     const placedRects = [];
-    for (const entry of entries) {
+    for (const entry of anchored) {
+      entry.collisionOffset = 0;
+      entry.el.style.setProperty("--collision-offset", "0px");
+      placedRects.push(entry.el.getBoundingClientRect());
+    }
+
+    for (const entry of movable) {
       // Пробуем на один шаг ОСЛАБИТЬ сдвиг — если места уже достаточно,
       // карточка постепенно возвращается на своё место (а не прыгает
       // назад мгновенно, когда соседняя метка уходит из кадра).
       if (entry.collisionOffset < 0) {
-        const relaxed = entry.collisionOffset + COLLISION_STEP;
+        const relaxed = entry.collisionOffset + window.APP_CONFIG.COLLISION_STEP_PX;
         entry.el.style.setProperty("--collision-offset", `${relaxed}px`);
         const relaxedRect = entry.el.getBoundingClientRect();
         if (!placedRects.some((r) => rectsOverlap(relaxedRect, r))) {
@@ -134,7 +151,7 @@ const Panel = (() => {
       let rect = entry.el.getBoundingClientRect();
       let guard = 0;
       while (placedRects.some((r) => rectsOverlap(rect, r)) && guard < 20) {
-        entry.collisionOffset -= COLLISION_STEP;
+        entry.collisionOffset -= window.APP_CONFIG.COLLISION_STEP_PX;
         entry.el.style.setProperty("--collision-offset", `${entry.collisionOffset}px`);
         rect = entry.el.getBoundingClientRect();
         guard++;

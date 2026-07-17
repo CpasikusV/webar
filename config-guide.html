@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebAR · Гид по конфигу</title>
+
+<!-- Настоящие файлы приложения — не копия, а тот же CSS/JS, что и в
+     index.html. Слайдеры на этой странице двигают РЕАЛЬНЫЕ переменные,
+     поэтому демо честно показывает, как оно будет выглядеть в бою. -->
+<link rel="stylesheet" href="css/config.css" />
+<link rel="stylesheet" href="css/style.css" />
+
+<style>
+  /* ---- Стили самой гид-страницы (не относятся к AR-приложению) ---- */
+  body {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+    background: var(--ink);
+  }
+  .guide-header {
+    margin-bottom: 32px;
+  }
+  .guide-header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 8px;
+  }
+  .guide-header p {
+    color: var(--fg-dim);
+    line-height: 1.5;
+    margin: 0;
+    font-size: 0.92rem;
+  }
+  .guide-section {
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    padding: 20px 20px 24px;
+    margin-bottom: 20px;
+    background: var(--panel);
+  }
+  .guide-section h2 {
+    font-size: 1.1rem;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .guide-section h2 code {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(47,224,200,0.12);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .guide-desc {
+    color: var(--fg-dim);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin: 6px 0 16px;
+  }
+  .guide-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 22px;
+    margin-bottom: 16px;
+  }
+  .guide-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 200px;
+    flex: 1 1 220px;
+  }
+  .guide-control label {
+    font-size: 0.78rem;
+    color: var(--fg-dim);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .guide-control label b {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .guide-control input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .guide-btn {
+    border: 1px solid var(--panel-line);
+    background: rgba(255,255,255,0.04);
+    color: var(--fg);
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .guide-btn:active { border-color: var(--accent); color: var(--accent); }
+  .guide-btn--accent {
+    background: var(--accent);
+    color: #06201C;
+    font-weight: 600;
+    border: none;
+  }
+  .guide-demo {
+    position: relative;
+    height: 240px;
+    border-radius: 12px;
+    background:
+      repeating-linear-gradient(45deg, #16191c 0 10px, #14171a 10px 20px);
+    overflow: hidden;
+  }
+  .guide-demo--tall { height: 320px; }
+  .guide-marker {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(47,224,200,0.25);
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
+  .guide-marker--b { background: #F5C244; box-shadow: 0 0 0 4px rgba(245,194,68,0.25); }
+  .guide-marker--raw { background: #FF5D5D; box-shadow: 0 0 0 4px rgba(255,93,93,0.25); width: 10px; height: 10px; }
+  .guide-legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-size: 0.76rem; color: var(--fg-dim);
+    margin-top: 10px;
+  }
+  .guide-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .guide-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .guide-log {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--fg-dim);
+    max-height: 70px;
+    overflow-y: auto;
+    border-top: 1px solid var(--panel-line);
+    padding-top: 8px;
+  }
+  .guide-log div { padding: 1px 0; }
+  .guide-log div.hit { color: var(--status-ok); }
+  .guide-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--panel-line);
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .guide-progress__bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.05s linear;
+  }
+  .guide-toast {
+    position: absolute;
+    left: 50%; top: 12px;
+    transform: translateX(-50%);
+    background: rgba(20,24,27,0.92);
+    border: 1px solid var(--panel-line);
+    color: var(--fg-dim);
+    font-size: 0.78rem;
+    padding: 6px 14px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .guide-toast.show { opacity: 1; }
+  .guide-note {
+    font-size: 0.78rem;
+    color: var(--fg-dim);
+    background: rgba(255,255,255,0.03);
+    border-left: 2px solid var(--accent-dim);
+    padding: 8px 12px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .guide-note b { color: var(--fg); }
+</style>
+</head>
+<body>
+
+  <div class="guide-header">
+    <h1>Гид по конфигу WebAR</h1>
+    <p>
+      Все параметры из <code style="font-family:'IBM Plex Mono',monospace;color:var(--accent)">css/config.css</code>
+      и <code style="font-family:'IBM Plex Mono',monospace;color:var(--accent)">js/config.js</code> — с живыми примерами.
+      Двигайте слайдеры и жмите кнопки, чтобы увидеть эффект НА САМОМ ДЕЛЕ (страница использует те же CSS/JS файлы,
+      что и основное приложение). Эта страница — только для вас, в само приложение не встроена и не нужна на складе.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ВНЕШНИЙ ВИД (css/config.css)                                   -->
+  <!-- ============================================================ -->
+
+  <div class="guide-section">
+    <h2>Ширина карточки <code>--panel-width-vw / --panel-width-max</code></h2>
+    <p class="guide-desc">Итоговая ширина — МЕНЬШЕЕ из двух: доля экрана (vw) или потолок в пикселях. Тут меняем px-потолок.</p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>--panel-width-max <b id="valWidthMax">240px</b></label>
+        <input type="range" id="ctrlWidthMax" min="160" max="360" step="10" value="240" />
+      </div>
+    </div>
+    <div class="guide-demo" id="demoWidth"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Положение над меткой <code>--panel-offset-y</code></h2>
+    <p class="guide-desc">Ближе к 0% — карточка ниже (ближе к метке). Дальше от 0% — выше.</p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>--panel-offset-y <b id="valOffsetY">-105%</b></label>
+        <input type="range" id="ctrlOffsetY" min="-160" max="-40" step="5" value="-105" />
+      </div>
+    </div>
+    <div class="guide-demo guide-demo--tall" id="demoOffset"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Скругление и размытие <code>--panel-radius / --panel-blur-px</code></h2>
+    <p class="guide-desc">Скругление углов карточки и сила блюра фона за ней ("матовое стекло"). 0 — совсем без блюра, быстрее на слабых устройствах.</p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>--panel-radius <b id="valRadius">14px</b></label>
+        <input type="range" id="ctrlRadius" min="0" max="32" step="1" value="14" />
+      </div>
+      <div class="guide-control">
+        <label>--panel-blur-px <b id="valBlur">6px</b></label>
+        <input type="range" id="ctrlBlur" min="0" max="16" step="1" value="6" />
+      </div>
+    </div>
+    <div class="guide-demo" id="demoRadius" style="background-image:linear-gradient(135deg,#2FE0C822,#F5C24422),repeating-linear-gradient(45deg,#16191c 0 10px,#14171a 10px 20px)"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Фото товара <code>--item-thumb-size / --panel-collapsed-thumb-size / --item-thumb-bg</code></h2>
+    <p class="guide-desc">
+      Размер фото отдельно для свёрнутой карточки (видно по умолчанию) и развёрнутой (после тапа).
+      Фон под фото — белый по умолчанию: тёмный фон делал прозрачные поля PNG-фото чёрной рамкой (см. кнопку ниже).
+    </p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>--panel-collapsed-thumb-size <b id="valThumbCollapsed">72px</b></label>
+        <input type="range" id="ctrlThumbCollapsed" min="40" max="140" step="4" value="72" />
+      </div>
+      <div class="guide-control">
+        <label>--item-thumb-size (развёрнуто) <b id="valThumbExpanded">88px</b></label>
+        <input type="range" id="ctrlThumbExpanded" min="40" max="140" step="4" value="88" />
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button class="guide-btn guide-btn--accent" id="btnThumbBgWhite">Белый фон (норма)</button>
+      <button class="guide-btn" id="btnThumbBgDark">Тёмный фон (баг, для сравнения)</button>
+      <button class="guide-btn" id="btnToggleExpandAppearance">Развернуть/свернуть карточку</button>
+    </div>
+    <div class="guide-demo" id="demoThumb"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Скорость анимаций <code>--transition-position / --transition-expand / --transition-fade</code></h2>
+    <p class="guide-desc">
+      <b>position</b> — слежение за меткой при движении камеры. <b>expand</b> — разворот по тапу и раздвигание при столкновении.
+      <b>fade</b> — появление/исчезание. Жмите «Пульс», чтобы увидеть скорость в деле.
+    </p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>--transition-position <b id="valTransPos">0.12s</b></label>
+        <input type="range" id="ctrlTransPos" min="0.02" max="0.6" step="0.02" value="0.12" />
+      </div>
+      <div class="guide-control">
+        <label>--transition-expand <b id="valTransExpand">0.22s</b></label>
+        <input type="range" id="ctrlTransExpand" min="0.02" max="0.6" step="0.02" value="0.22" />
+      </div>
+    </div>
+    <button class="guide-btn guide-btn--accent" id="btnPulse">Пульс (туда-обратно)</button>
+    <div class="guide-demo" id="demoTransition"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ПОВЕДЕНИЕ (js/config.js)                                       -->
+  <!-- ============================================================ -->
+
+  <div class="guide-section">
+    <h2>Сглаживание позиции <code>POSITION_SMOOTHING</code></h2>
+    <p class="guide-desc">
+      Красная точка — сырые координаты метки от детектора (могут дёргаться). Бирюзовая карточка — итоговая позиция.
+      Жмите «Плохой кадр» — точка прыгает случайно в сторону. Смотрите, насколько сильно/слабо дёргается карточка.
+    </p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>POSITION_SMOOTHING <b id="valSmoothing">0.35</b></label>
+        <input type="range" id="ctrlSmoothing" min="0.05" max="1" step="0.05" value="0.35" />
+      </div>
+    </div>
+    <button class="guide-btn guide-btn--accent" id="btnBadFrame">Плохой кадр (случайный скачок)</button>
+    <button class="guide-btn" id="btnGoodMove">Метка честно переместилась (10 кадров подряд)</button>
+    <div class="guide-demo" id="demoSmoothing"></div>
+    <div class="guide-legend">
+      <span><i style="background:#FF5D5D"></i>сырая точка детектора</span>
+      <span><i style="background:var(--accent)"></i>карточка (сглаженная)</span>
+    </div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Разъезд карточек при столкновении <code>COLLISION_STEP_PX / COLLISION_RESOLVE_INTERVAL_MS / COLLISION_PADDING_PX</code></h2>
+    <p class="guide-desc">
+      <b>STEP</b> — на сколько px карточка сдвигается за один шаг. <b>INTERVAL</b> — как часто пересчитывать (больше = спокойнее, меньше = быстрее реагирует, но может дёргаться).
+      <b>PADDING</b> — с какого расстояния карточки считаются "наехавшими". Если карточка А развёрнута — она НЕ двигается (см. предыдущий баг-фикс), карточка B её обходит.
+    </p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>COLLISION_STEP_PX <b id="valCollStep">14</b></label>
+        <input type="range" id="ctrlCollStep" min="4" max="40" step="2" value="14" />
+      </div>
+      <div class="guide-control">
+        <label>COLLISION_RESOLVE_INTERVAL_MS <b id="valCollInterval">220</b></label>
+        <input type="range" id="ctrlCollInterval" min="50" max="600" step="10" value="220" />
+      </div>
+      <div class="guide-control">
+        <label>COLLISION_PADDING_PX <b id="valCollPad">6</b></label>
+        <input type="range" id="ctrlCollPad" min="0" max="40" step="2" value="6" />
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button class="guide-btn guide-btn--accent" id="btnCollApproach">Метка B приближается к A</button>
+      <button class="guide-btn" id="btnCollExpandA">A развёрнута: <span id="collAState">нет</span></button>
+    </div>
+    <div class="guide-demo guide-demo--tall" id="panelLayer"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Тайминги распознавания <code>NO_DETECTION_TIMEOUT_MS / RESCAN_COOLDOWN_MS / PANEL_MAX_AGE_MS</code></h2>
+    <p class="guide-desc">Три независимых таймера — жмите кнопки по очереди.</p>
+
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>NO_DETECTION_TIMEOUT_MS <b id="valNoDetect">3000</b></label>
+        <input type="range" id="ctrlNoDetect" min="500" max="8000" step="250" value="3000" />
+      </div>
+    </div>
+    <button class="guide-btn guide-btn--accent" id="btnNoDetect">Метки нет в кадре — запустить таймер</button>
+    <div class="guide-progress"><div class="guide-progress__bar" id="barNoDetect"></div></div>
+    <div class="guide-log" id="logNoDetect"></div>
+
+    <hr style="border:none;border-top:1px solid var(--panel-line);margin:20px 0;" />
+
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>RESCAN_COOLDOWN_MS <b id="valRescan">1500</b></label>
+        <input type="range" id="ctrlRescan" min="200" max="4000" step="100" value="1500" />
+      </div>
+    </div>
+    <button class="guide-btn guide-btn--accent" id="btnRescanSpam">Метка мелькает в кадре 10 раз подряд</button>
+    <p class="guide-desc" style="margin:8px 0 0">Реальных запросов к серверу уйдёт гораздо меньше 10 — остальные проглотит cooldown:</p>
+    <div class="guide-log" id="logRescan"></div>
+
+    <hr style="border:none;border-top:1px solid var(--panel-line);margin:20px 0;" />
+
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>PANEL_MAX_AGE_MS <b id="valMaxAge">2500</b></label>
+        <input type="range" id="ctrlMaxAge" min="500" max="6000" step="250" value="2500" />
+      </div>
+    </div>
+    <button class="guide-btn guide-btn--accent" id="btnLoseMarker">Метка пропала из кадра</button>
+    <div class="guide-progress"><div class="guide-progress__bar" id="barMaxAge"></div></div>
+    <div class="guide-demo" id="demoMaxAge" style="height:140px"></div>
+  </div>
+
+  <div class="guide-section">
+    <h2>Опрос камеры <code>SCAN_INTERVAL_MS / ZXING_SCAN_INTERVAL_MS</code></h2>
+    <p class="guide-desc">Как часто пытаемся распознать штрихкод в кадре. Меньше — отзывчивее, но больше нагрузка на телефон. Точка "тикает" с этой частотой.</p>
+    <div class="guide-controls">
+      <div class="guide-control">
+        <label>SCAN_INTERVAL_MS <b id="valScanInterval">180</b></label>
+        <input type="range" id="ctrlScanInterval" min="50" max="600" step="10" value="180" />
+      </div>
+    </div>
+    <div class="guide-demo" id="demoScan" style="height:100px; display:flex; align-items:center; justify-content:center;">
+      <div id="scanTickDot" style="width:22px;height:22px;border-radius:50%;background:var(--accent);"></div>
+    </div>
+  </div>
+
+  <div class="guide-note">
+    <b>Как применить в бою:</b> подобрали значение слайдером — открываете реальный <code>css/config.css</code> или
+    <code>js/config.js</code>, находите переменную по имени (оно написано над каждым слайдером) и ставите то же число.
+    Не забудьте бампнуть версию у CSS-файлов в <code>index.html</code> (<code>?v=N</code>), иначе браузер может закэшировать старое.
+  </div>
+
+  <!-- Шаблоны панели — 1:1 те же, что в index.html, чтобы Panel.js работал без изменений -->
+  <template id="cellPanelTemplate">
+    <div class="cellpanel">
+      <div class="cellpanel__head">
+        <span class="cellpanel__cell" data-field="cell">—</span>
+        <span class="cellpanel__badge" data-field="badge">—</span>
+      </div>
+      <div class="cellpanel__items" data-field="items"></div>
+      <div class="cellpanel__meta" data-field="meta"></div>
+    </div>
+  </template>
+  <template id="cellItemTemplate">
+    <div class="cellpanel__item">
+      <div class="cellpanel__itemThumb" data-field="itemThumbWrap">
+        <img data-field="itemThumb" alt="" />
+      </div>
+      <div class="cellpanel__itemInfo">
+        <div class="cellpanel__itemName" data-field="itemName">—</div>
+        <div class="cellpanel__itemSku" data-field="itemSku"></div>
+        <div class="cellpanel__itemQty">
+          <span data-field="itemQty">—</span> <span class="cellpanel__unit">шт.</span>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="js/config.js"></script>
+  <script src="js/panel.js"></script>
+  <script>
+    // Простая PNG-заглушка бутылки с прозрачным фоном — только чтобы
+    // честно показать эффект --item-thumb-bg (белая/тёмная подложка).
+    const DEMO_PHOTO = "data:image/svg+xml;utf8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+        <rect x="82" y="20" width="36" height="18" rx="4" fill="#caa24a"/>
+        <path d="M78 38 h44 v22 c18 10 26 30 26 55 v55 a10 10 0 0 1 -10 10 h-76 a10 10 0 0 1 -10 -10 v-55 c0 -25 8 -45 26 -55 z" fill="#1f3d2e"/>
+        <rect x="66" y="118" width="68" height="40" rx="4" fill="#e2662b"/>
+      </svg>`);
+
+    const el = (id) => document.getElementById(id);
+    const bindRangeVar = (rangeId, valId, cssVar, unit, target = document.documentElement) => {
+      const range = el(rangeId), out = el(valId);
+      const apply = () => {
+        target.style.setProperty(cssVar, range.value + unit);
+        out.textContent = range.value + unit;
+      };
+      range.addEventListener("input", apply);
+      apply();
+    };
+
+    // ---- Ширина ----
+    bindRangeVar("ctrlWidthMax", "valWidthMax", "--panel-width-max", "px");
+
+    // ---- Положение ----
+    bindRangeVar("ctrlOffsetY", "valOffsetY", "--panel-offset-y", "%");
+
+    // ---- Радиус/блюр ----
+    bindRangeVar("ctrlRadius", "valRadius", "--panel-radius", "px");
+    bindRangeVar("ctrlBlur", "valBlur", "--panel-blur-px", "px");
+
+    // ---- Размер фото ----
+    bindRangeVar("ctrlThumbCollapsed", "valThumbCollapsed", "--panel-collapsed-thumb-size", "px");
+    bindRangeVar("ctrlThumbExpanded", "valThumbExpanded", "--item-thumb-size", "px");
+    el("btnThumbBgWhite").addEventListener("click", () => document.documentElement.style.setProperty("--item-thumb-bg", "#ffffff"));
+    el("btnThumbBgDark").addEventListener("click", () => document.documentElement.style.setProperty("--item-thumb-bg", "#0B0E10"));
+
+    // ---- Скорость анимаций ----
+    bindRangeVar("ctrlTransPos", "valTransPos", "--transition-position", "s");
+    bindRangeVar("ctrlTransExpand", "valTransExpand", "--transition-expand", "s");
+
+    // ---- Сглаживание позиции ----
+    el("ctrlSmoothing").addEventListener("input", (e) => {
+      window.APP_CONFIG.POSITION_SMOOTHING = parseFloat(e.target.value);
+      el("valSmoothing").textContent = e.target.value;
+    });
+
+    // ---- Коллизии ----
+    el("ctrlCollStep").addEventListener("input", (e) => {
+      window.APP_CONFIG.COLLISION_STEP_PX = parseInt(e.target.value, 10);
+      el("valCollStep").textContent = e.target.value;
+    });
+    el("ctrlCollInterval").addEventListener("input", (e) => {
+      window.APP_CONFIG.COLLISION_RESOLVE_INTERVAL_MS = parseInt(e.target.value, 10);
+      el("valCollInterval").textContent = e.target.value;
+    });
+    el("ctrlCollPad").addEventListener("input", (e) => {
+      window.APP_CONFIG.COLLISION_PADDING_PX = parseInt(e.target.value, 10);
+      el("valCollPad").textContent = e.target.value;
+    });
+
+    // ---- Тайминги ----
+    el("ctrlNoDetect").addEventListener("input", (e) => el("valNoDetect").textContent = e.target.value);
+    el("ctrlRescan").addEventListener("input", (e) => el("valRescan").textContent = e.target.value);
+    el("ctrlMaxAge").addEventListener("input", (e) => el("valMaxAge").textContent = e.target.value);
+    el("ctrlScanInterval").addEventListener("input", (e) => el("valScanInterval").textContent = e.target.value);
+
+    /* ==================================================================
+       Демо 1: ширина — одна свёрнутая карточка над меткой в центре
+       ================================================================== */
+    (function demoWidthInit() {
+      const box = el("demoWidth");
+      const marker = document.createElement("div");
+      marker.className = "guide-marker";
+      marker.style.left = "50%"; marker.style.top = "78%";
+      box.appendChild(marker);
+      Panel.place("WIDTH-DEMO", { x: box.clientWidth / 2, y: box.clientHeight * 0.78 });
+      Panel.show("WIDTH-DEMO", { cell: "65021", status: "ok", items: [
+        { sku: "1", name: "Вермут Fratelli МохітоБел (1л)", qty: 12 },
+      ]});
+      setTimeout(() => document.querySelector('[data-marker-id="WIDTH-DEMO"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })), 50);
+    })();
+
+    /* ==================================================================
+       Демо 2: вертикальное положение
+       ================================================================== */
+    (function demoOffsetInit() {
+      const box = el("demoOffset");
+      const marker = document.createElement("div");
+      marker.className = "guide-marker";
+      marker.style.left = "50%"; marker.style.top = "82%";
+      box.appendChild(marker);
+      Panel.place("OFFSET-DEMO", { x: box.clientWidth / 2, y: box.clientHeight * 0.82 });
+      Panel.show("OFFSET-DEMO", { cell: "65071", status: "ok", items: [{ sku: "2", name: "Паштет Banga (100г)", qty: 40 }]});
+    })();
+
+    /* ==================================================================
+       Демо 3: радиус/блюр
+       ================================================================== */
+    (function demoRadiusInit() {
+      const box = el("demoRadius");
+      Panel.place("RADIUS-DEMO", { x: box.clientWidth / 2, y: box.clientHeight * 0.7 });
+      Panel.show("RADIUS-DEMO", { cell: "65041", status: "reserved", items: [{ sku: "3", name: "Товар в резерве", qty: 7 }]});
+      setTimeout(() => document.querySelector('[data-marker-id="RADIUS-DEMO"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })), 50);
+    })();
+
+    /* ==================================================================
+       Демо 4: фото товара
+       ================================================================== */
+    (function demoThumbInit() {
+      const box = el("demoThumb");
+      Panel.place("THUMB-DEMO", { x: box.clientWidth / 2, y: box.clientHeight * 0.75 });
+      Panel.show("THUMB-DEMO", { cell: "65701", status: "ok", items: [{ sku: "969831", name: "Вино ігристе Salute біле", qty: 384 }]});
+      Panel.setItemImage("THUMB-DEMO", "969831", DEMO_PHOTO);
+      setTimeout(() => document.querySelector('[data-marker-id="THUMB-DEMO"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })), 50);
+      el("btnToggleExpandAppearance").addEventListener("click", () => {
+        document.querySelector('[data-marker-id="THUMB-DEMO"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    })();
+
+    /* ==================================================================
+       Демо 5: скорость transition — "пульс" двигает метку туда-обратно
+       ================================================================== */
+    (function demoTransitionInit() {
+      const box = el("demoTransition");
+      const marker = document.createElement("div");
+      marker.className = "guide-marker";
+      box.appendChild(marker);
+      let toggled = false;
+      function setMarker(px, py) {
+        marker.style.left = px + "px"; marker.style.top = py + "px";
+        Panel.place("PULSE-DEMO", { x: px, y: py });
+      }
+      setMarker(box.clientWidth * 0.3, box.clientHeight * 0.75);
+      Panel.show("PULSE-DEMO", { cell: "65031", status: "ok", items: [{ sku: "4", name: "Настойка Nemiroff Пекучая груша", qty: 20 }]});
+      el("btnPulse").addEventListener("click", () => {
+        toggled = !toggled;
+        setMarker(box.clientWidth * (toggled ? 0.7 : 0.3), box.clientHeight * 0.75);
+      });
+    })();
+
+    /* ==================================================================
+       Демо 6: сглаживание позиции — сырая точка vs карточка
+       ================================================================== */
+    (function demoSmoothingInit() {
+      const box = el("demoSmoothing");
+      const raw = document.createElement("div");
+      raw.className = "guide-marker guide-marker--raw";
+      box.appendChild(raw);
+      let px = box.clientWidth * 0.5, py = box.clientHeight * 0.7;
+      function setRaw(x, y) {
+        px = x; py = y;
+        raw.style.left = x + "px"; raw.style.top = y + "px";
+        Panel.place("SMOOTH-DEMO", { x, y });
+      }
+      setRaw(px, py);
+      Panel.show("SMOOTH-DEMO", { cell: "65061", status: "ok", items: [{ sku: "5", name: "Напій Bolgrad Алазанська долина", qty: 60 }]});
+
+      el("btnBadFrame").addEventListener("click", () => {
+        const jx = Math.random() * box.clientWidth;
+        const jy = Math.random() * box.clientHeight * 0.6;
+        setRaw(jx, jy);
+        // возвращаем на честное место следующим "хорошим" кадром через 400мс
+        setTimeout(() => setRaw(box.clientWidth * 0.5, box.clientHeight * 0.7), 400);
+      });
+      el("btnGoodMove").addEventListener("click", () => {
+        const targetX = px > box.clientWidth / 2 ? box.clientWidth * 0.2 : box.clientWidth * 0.8;
+        let i = 0;
+        const iv = setInterval(() => {
+          setRaw(targetX, py);
+          if (++i >= 10) clearInterval(iv);
+        }, 90);
+      });
+    })();
+
+    /* ==================================================================
+       Демо 7: коллизии — карточка A (можно развернуть) + карточка B,
+       которая "подъезжает" к A
+       ================================================================== */
+    (function demoCollisionInit() {
+      const box = el("panelLayer"); // сюда рендерятся настоящие .cellpanel — это тот же #panelLayer, что в index.html
+      Panel.place("COLL-A", { x: box.clientWidth * 0.35, y: box.clientHeight * 0.75 });
+      Panel.show("COLL-A", { cell: "65021", status: "ok", items: [{ sku: "6", name: "Вермут Fratelli МохітоБел", qty: 12 }]});
+
+      Panel.place("COLL-B", { x: box.clientWidth * 0.9, y: box.clientHeight * 0.75 });
+      Panel.show("COLL-B", { cell: "65022", status: "ok", items: [{ sku: "7", name: "Вермут Salute Bianco", qty: 5 }]});
+      Panel.resolveCollisions();
+
+      let expandedA = false;
+      el("btnCollExpandA").addEventListener("click", () => {
+        document.querySelector('[data-marker-id="COLL-A"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expandedA = !expandedA;
+        el("collAState").textContent = expandedA ? "да" : "нет";
+      });
+
+      el("btnCollApproach").addEventListener("click", () => {
+        let t = 0;
+        const startX = box.clientWidth * 0.9;
+        const endX = box.clientWidth * 0.4;
+        const iv = setInterval(() => {
+          t += 0.05;
+          const x = startX + (endX - startX) * Math.min(t, 1);
+          Panel.place("COLL-B", { x, y: box.clientHeight * 0.75 });
+          Panel.resolveCollisions();
+          if (t >= 1) clearInterval(iv);
+        }, 60);
+      });
+    })();
+
+    /* ==================================================================
+       Демо 8: тайминги — NO_DETECTION / RESCAN / PANEL_MAX_AGE
+       ================================================================== */
+    function logLine(containerId, text, hit) {
+      const c = el(containerId);
+      const line = document.createElement("div");
+      if (hit) line.className = "hit";
+      line.textContent = text;
+      c.appendChild(line);
+      c.scrollTop = c.scrollHeight;
+    }
+
+    el("btnNoDetect").addEventListener("click", () => {
+      const ms = parseInt(el("ctrlNoDetect").value, 10);
+      const bar = el("barNoDetect");
+      el("logNoDetect").innerHTML = "";
+      logLine("logNoDetect", "0мс — метка пропала из кадра...");
+      const start = performance.now();
+      bar.style.width = "0%";
+      function tick(now) {
+        const p = Math.min((now - start) / ms, 1);
+        bar.style.width = (p * 100) + "%";
+        if (p < 1) requestAnimationFrame(tick);
+        else logLine("logNoDetect", `${ms}мс — показываем подсказку "метки не найдены" / кнопку ручного ввода`, true);
+      }
+      requestAnimationFrame(tick);
+    });
+
+    el("btnRescanSpam").addEventListener("click", () => {
+      const cooldown = parseInt(el("ctrlRescan").value, 10);
+      const log = el("logRescan");
+      log.innerHTML = "";
+      let lastRequestAt = -Infinity;
+      let real = 0;
+      for (let i = 0; i < 10; i++) {
+        const t = i * 150; // метка "мелькает" каждые 150мс
+        const allowed = t - lastRequestAt >= cooldown;
+        if (allowed) { lastRequestAt = t; real++; }
+        logLine("logRescan", `t=${t}мс: метка в кадре — ${allowed ? "запрос к серверу отправлен" : "пропущено (cooldown)"}`, allowed);
+      }
+      logLine("logRescan", `Итого реальных запросов: ${real} из 10`, true);
+    });
+
+    el("btnLoseMarker").addEventListener("click", () => {
+      const box = el("demoMaxAge");
+      box.innerHTML = "";
+      Panel.place("MAXAGE-DEMO", { x: box.clientWidth / 2, y: box.clientHeight * 0.85 });
+      Panel.show("MAXAGE-DEMO", { cell: "65481", status: "ok", items: [{ sku: "8", name: "Вино La Francette Merlot", qty: 9 }]});
+
+      const ms = parseInt(el("ctrlMaxAge").value, 10);
+      const bar = el("barMaxAge");
+      bar.style.width = "0%";
+      const start = performance.now();
+      function tick(now) {
+        const elapsed = now - start;
+        bar.style.width = Math.min((elapsed / ms) * 100, 100) + "%";
+        Panel.pruneStale(ms);
+        if (document.querySelector('[data-marker-id="MAXAGE-DEMO"]')) {
+          requestAnimationFrame(tick);
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+
+    /* ==================================================================
+       Демо 9: частота опроса камеры — тикающая точка
+       ================================================================== */
+    (function demoScanInit() {
+      const dot = el("scanTickDot");
+      setInterval(() => {
+        const ms = parseInt(el("ctrlScanInterval").value, 10);
+        dot.style.transition = "transform 0.08s";
+        dot.style.transform = "scale(1.5)";
+        setTimeout(() => dot.style.transform = "scale(1)", 80);
+      }, parseInt(el("ctrlScanInterval").value, 10));
+    })();
+  </script>
+</body>
+</html>

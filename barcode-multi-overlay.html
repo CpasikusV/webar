@@ -6,6 +6,9 @@
 <title>Multi-barcode AR overlay</title>
 <!-- WASM-фолбэк детектора штрихкодов (работает и там, где нет нативного BarcodeDetector — включая iOS Safari) -->
 <script src="https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/ponyfill.min.js"></script>
+<!-- Ваш слой данных: MOCK_DB + mockFetchCell(markerId). Когда появится реальный
+     middleware-эндпоинт — правится только mock-api.js, этот файл не трогаем. -->
+<script src="mock-api.js"></script>
 <style>
   :root{
     --bg:#0b0d10;
@@ -40,6 +43,22 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
   .card .code{font-size:9px;color:var(--muted);letter-spacing:.02em;}
   .card.stale{opacity:0;}
+
+  .card{min-width:150px;max-width:190px;align-items:stretch;}
+  .card .head{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .card .cellCode{font-size:12px;font-weight:700;color:var(--text);}
+  .badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:2px 6px;border-radius:20px;white-space:nowrap;}
+  .badge.ok{background:rgba(94,234,212,0.16);color:var(--accent);}
+  .badge.reserved{background:rgba(255,196,84,0.16);color:#ffc454;}
+  .badge.blocked{background:rgba(255,107,107,0.16);color:var(--danger);}
+  .card .items{display:flex;flex-direction:column;gap:2px;margin-top:2px;}
+  .card .item{font-size:10.5px;line-height:1.3;color:var(--text);display:flex;justify-content:space-between;gap:6px;}
+  .card .item .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .card .item .qty{color:var(--muted);flex-shrink:0;}
+  .card.loading .items{color:var(--muted);font-size:10.5px;}
+  .card.err{border-color:rgba(255,107,107,0.4);}
+  .card.err .items{color:var(--danger);font-size:10.5px;}
 
   #hud{position:fixed;top:0;left:0;right:0;padding:12px 14px;display:flex;
     justify-content:space-between;align-items:flex-start;pointer-events:none;
@@ -76,14 +95,13 @@
 </div>
 
 <div id="panel">
-  Добавьте тестовую запись «штрихкод → картинка», затем наведите камеру на распечатанный/показанный на экране код.
-  <form id="addForm">
-    <input id="fCode" placeholder="значение кода (rawValue)" required>
-    <input id="fImg" placeholder="URL картинки" required>
-    <input id="fLabel" placeholder="подпись" required>
-    <button type="submit">Добавить</button>
-  </form>
-  <table id="dbTable"></table>
+  Данные тянутся из <code>mock-api.js</code> (<code>MOCK_DB</code> / <code>mockFetchCell</code>) по значению штрихкода = ключу ячейки.
+  Наведите камеру на код одной из тестовых ячеек, например <b>65021</b>, <b>65031</b>, <b>DEMO-001</b>, <b>DEMO-002</b>, <b>DEMO-003</b>.
+  <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">
+    <span><span class="badge ok">ok</span> в наличии</span>
+    <span><span class="badge reserved">reserved</span> зарезервировано</span>
+    <span><span class="badge blocked">blocked</span> заблокировано</span>
+  </div>
 </div>
 
 <div id="errBanner">
@@ -95,36 +113,39 @@
 <script>
 (() => {
   // ---------------------------------------------------------------
-  // 1. Мок-БД: barcode -> { img, label }. В проде — запрос к вашему API.
+  // 1. Данные: window.MOCK_DB / window.mockFetchCell(markerId) из mock-api.js.
+  //    mockFetchCell — async, с искусственной задержкой и ~5% шансом
+  //    сетевой ошибки, поэтому не дёргаем его на каждый кадр детекта —
+  //    держим кэш и per-код "в процессе" флаг.
   // ---------------------------------------------------------------
-  const db = new Map([
-    ['1234567890128', { img: 'https://placehold.co/128x128/1d2126/5eead4?text=SKU+001', label: 'Ячейка A1-03' }],
-    ['4006381333931', { img: 'https://placehold.co/128x128/1d2126/5eead4?text=SKU+002', label: 'Ячейка B2-11' }],
-  ]);
+  const cellCache = new Map();   // rawValue -> record | 'not_found'
+  const pending = new Set();     // rawValue, запрос в полёте
+  const RETRY_COOLDOWN_MS = 1500;
+  const lastAttempt = new Map(); // rawValue -> timestamp последней попытки
 
-  function lookup(rawValue) { return db.get(rawValue) || null; }
+  function getCellData(rawValue) {
+    if (cellCache.has(rawValue)) return cellCache.get(rawValue);
 
-  function renderDbTable() {
-    const t = document.getElementById('dbTable');
-    t.innerHTML = '';
-    db.forEach((v, k) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${k}</td><td class="muted">${v.label}</td>`;
-      t.appendChild(row);
-    });
+    const now = performance.now();
+    const last = lastAttempt.get(rawValue) || 0;
+    if (!pending.has(rawValue) && now - last > RETRY_COOLDOWN_MS) {
+      if (typeof window.mockFetchCell !== 'function') {
+        cellCache.set(rawValue, 'not_found');
+        return 'not_found';
+      }
+      pending.add(rawValue);
+      lastAttempt.set(rawValue, now);
+      window.mockFetchCell(rawValue)
+        .then(record => { cellCache.set(rawValue, record); })
+        .catch(err => {
+          // "not_found" запоминаем насовсем — код реально не в БД.
+          // Сетевую ошибку не кэшируем — дадим переспросить через RETRY_COOLDOWN_MS.
+          if (err && err.message === 'not_found') cellCache.set(rawValue, 'not_found');
+        })
+        .finally(() => pending.delete(rawValue));
+    }
+    return pending.has(rawValue) ? 'loading' : null;
   }
-  renderDbTable();
-
-  document.getElementById('addForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const code = document.getElementById('fCode').value.trim();
-    const img = document.getElementById('fImg').value.trim();
-    const label = document.getElementById('fLabel').value.trim();
-    if (!code || !img || !label) return;
-    db.set(code, { img, label });
-    renderDbTable();
-    e.target.reset();
-  });
 
   // ---------------------------------------------------------------
   // 2. Камера
@@ -199,7 +220,26 @@
     return { scale, offX, offY };
   }
 
-  function upsertCard(rawValue, entry, corners) {
+  function itemsHtml(items) {
+    if (!items || !items.length) return '<div class="item"><span class="nm">(нет позиций)</span></div>';
+    return items.slice(0, 4).map(it =>
+      `<div class="item"><span class="nm">${it.name}</span><span class="qty">${it.qty}</span></div>`
+    ).join('');
+  }
+
+  function cardInnerHtml(rawValue, data) {
+    if (data === 'loading') {
+      return `<div class="head"><span class="cellCode">${rawValue}</span></div><div class="items">загрузка…</div>`;
+    }
+    if (data === 'not_found' || data === null) {
+      return `<div class="head"><span class="cellCode">${rawValue}</span></div><div class="items">нет данных по коду</div>`;
+    }
+    return `
+      <div class="head"><span class="cellCode">${data.cell}</span><span class="badge ${data.status}">${data.status}</span></div>
+      <div class="items">${itemsHtml(data.items)}</div>`;
+  }
+
+  function upsertCard(rawValue, data, corners) {
     const { cx, cy, angle } = cornerCenterSizeAngle(corners);
     const { scale, offX, offY } = videoToStageScale();
     const x = cx * scale + offX;
@@ -209,14 +249,22 @@
     if (!rec) {
       const el = document.createElement('div');
       el.className = 'card';
-      el.innerHTML = `<img src="${entry.img}" alt=""><div class="label">${entry.label}</div><div class="code">${rawValue}</div>`;
       overlayLayer.appendChild(el);
-      rec = { el, lastSeen: 0 };
+      rec = { el, lastSeen: 0, lastData: undefined };
       cards.set(rawValue, rec);
     }
     rec.lastSeen = performance.now();
     rec.el.classList.remove('stale');
-    // якорим карточку чуть выше кода, чтобы не перекрывать сам штрихкод
+    rec.el.classList.toggle('loading', data === 'loading');
+    rec.el.classList.toggle('err', data === 'not_found');
+
+    // Перерисовываем innerHTML только когда данные реально изменились —
+    // не на каждый кадр, чтобы не дёргать layout зря.
+    if (rec.lastData !== data) {
+      rec.el.innerHTML = cardInnerHtml(rawValue, data);
+      rec.lastData = data;
+    }
+
     rec.el.style.left = `${x}px`;
     rec.el.style.top = `${y - 70}px`;
     rec.el.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
@@ -274,8 +322,8 @@
       const barcodes = await detector.detect(video);
       seenCountEl.textContent = barcodes.length;
       barcodes.forEach(bc => {
-        const entry = lookup(bc.rawValue);
-        if (entry) upsertCard(bc.rawValue, entry, bc.cornerPoints);
+        const data = getCellData(bc.rawValue);
+        if (data !== null) upsertCard(bc.rawValue, data, bc.cornerPoints);
       });
       pruneStale();
       resolveCollisions();

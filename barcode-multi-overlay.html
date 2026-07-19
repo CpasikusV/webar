@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Multi-barcode AR overlay</title>
+<!-- WASM-фолбэк детектора штрихкодов (работает и там, где нет нативного BarcodeDetector — включая iOS Safari) -->
+<script src="https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/ponyfill.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:rgba(18,20,24,0.86);
+    --line:rgba(255,255,255,0.14);
+    --accent:#5eead4;
+    --text:#eef1f3;
+    --muted:#9aa4ac;
+    --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow:hidden;}
+
+  #stage{position:fixed;inset:0;overflow:hidden;}
+  video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+
+  #overlayLayer{position:absolute;inset:0;pointer-events:none;}
+
+  .card{
+    position:absolute;transform-origin:center center;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:6px 8px 7px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);
+    backdrop-filter:blur(6px);
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    transition:left .08s linear, top .08s linear, transform .08s linear, opacity .15s ease;
+    max-width:150px;
+  }
+  .card img{width:64px;height:64px;object-fit:cover;border-radius:8px;display:block;background:#1d2126;}
+  .card .label{font-size:11px;line-height:1.25;color:var(--text);text-align:center;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+  .card .code{font-size:9px;color:var(--muted);letter-spacing:.02em;}
+  .card.stale{opacity:0;}
+
+  #hud{position:fixed;top:0;left:0;right:0;padding:12px 14px;display:flex;
+    justify-content:space-between;align-items:flex-start;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,0.55),rgba(0,0,0,0));}
+  #hud .status{font-size:12px;color:var(--muted);background:rgba(0,0,0,0.35);
+    padding:5px 9px;border-radius:20px;pointer-events:auto;}
+  #hud .status b{color:var(--accent);font-weight:600;}
+
+  #panel{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+    border-top:1px solid var(--line);padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+    font-size:12px;color:var(--muted);}
+  #panel form{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  #panel input{flex:1 1 110px;min-width:90px;background:#15181c;border:1px solid var(--line);
+    color:var(--text);border-radius:8px;padding:8px 9px;font-size:13px;}
+  #panel button{background:var(--accent);color:#06231f;border:none;border-radius:8px;
+    padding:8px 12px;font-size:13px;font-weight:600;}
+  #panel table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;}
+  #panel td{padding:3px 4px;border-bottom:1px solid var(--line);color:var(--text);}
+  #panel td.muted{color:var(--muted);}
+  #errBanner{display:none;position:fixed;inset:0;background:var(--bg);color:var(--text);
+    padding:20px;font-size:14px;line-height:1.5;z-index:5;}
+  #errBanner b{color:var(--danger);}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <div id="overlayLayer"></div>
+</div>
+
+<div id="hud">
+  <div class="status">detector: <b id="detKind">…</b> · видно кодов: <b id="seenCount">0</b></div>
+</div>
+
+<div id="panel">
+  Добавьте тестовую запись «штрихкод → картинка», затем наведите камеру на распечатанный/показанный на экране код.
+  <form id="addForm">
+    <input id="fCode" placeholder="значение кода (rawValue)" required>
+    <input id="fImg" placeholder="URL картинки" required>
+    <input id="fLabel" placeholder="подпись" required>
+    <button type="submit">Добавить</button>
+  </form>
+  <table id="dbTable"></table>
+</div>
+
+<div id="errBanner">
+  <p><b>Детектор штрихкодов не инициализировался.</b></p>
+  <p>Обычно причина — страница открыта не по HTTPS (или не localhost): камера и загрузка WASM требуют secure context. Проверьте, что CDN-скрипт (jsdelivr) не заблокирован сетью/AdBlock.</p>
+  <p>Нативный BarcodeDetector есть в Chrome/Edge на Android; там, где его нет (например iOS Safari), должен автоматически подключаться WASM-фолбэк — при первом вызове detect() он может подгружаться чуть дольше на медленной сети.</p>
+</div>
+
+<script>
+(() => {
+  // ---------------------------------------------------------------
+  // 1. Мок-БД: barcode -> { img, label }. В проде — запрос к вашему API.
+  // ---------------------------------------------------------------
+  const db = new Map([
+    ['1234567890128', { img: 'https://placehold.co/128x128/1d2126/5eead4?text=SKU+001', label: 'Ячейка A1-03' }],
+    ['4006381333931', { img: 'https://placehold.co/128x128/1d2126/5eead4?text=SKU+002', label: 'Ячейка B2-11' }],
+  ]);
+
+  function lookup(rawValue) { return db.get(rawValue) || null; }
+
+  function renderDbTable() {
+    const t = document.getElementById('dbTable');
+    t.innerHTML = '';
+    db.forEach((v, k) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${k}</td><td class="muted">${v.label}</td>`;
+      t.appendChild(row);
+    });
+  }
+  renderDbTable();
+
+  document.getElementById('addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = document.getElementById('fCode').value.trim();
+    const img = document.getElementById('fImg').value.trim();
+    const label = document.getElementById('fLabel').value.trim();
+    if (!code || !img || !label) return;
+    db.set(code, { img, label });
+    renderDbTable();
+    e.target.reset();
+  });
+
+  // ---------------------------------------------------------------
+  // 2. Камера
+  // ---------------------------------------------------------------
+  const video = document.getElementById('video');
+
+  async function startCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+  }
+
+  // ---------------------------------------------------------------
+  // 3. Детектор (нативный BarcodeDetector; без fallback в этом прототипе)
+  // ---------------------------------------------------------------
+  let detector = null;
+  const detKindEl = document.getElementById('detKind');
+
+  async function initDetector() {
+    // 1) нативный BarcodeDetector (Chrome/Edge на Android, некоторые desktop-браузеры)
+    // 2) иначе — WASM-ponyfill (zxing-wasm), загруженный тегом <script> выше;
+    //    он даёт тот же API и работает в т.ч. в iOS Safari.
+    const isNative = 'BarcodeDetector' in window;
+    const Impl = isNative
+      ? window.BarcodeDetector
+      : (window.BarcodeDetectionAPI && window.BarcodeDetectionAPI.BarcodeDetector);
+
+    if (!Impl) return null;
+
+    try {
+      const supported = await Impl.getSupportedFormats();
+      const wanted = ['qr_code','ean_13','ean_8','upc_a','upc_e','code_128','code_39','codabar','itf','data_matrix'];
+      const formats = wanted.filter(f => supported.includes(f));
+      detector = new Impl({ formats: formats.length ? formats : supported });
+      detKindEl.textContent = isNative ? 'нативный' : 'WASM (zxing)';
+      return detector;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // 4. Слой оверлеев: один DOM-элемент на barcode, переиспользуется,
+  //    не пересоздаётся каждый кадр — иначе дёргается и грузит reflow.
+  // ---------------------------------------------------------------
+  const overlayLayer = document.getElementById('overlayLayer');
+  const cards = new Map(); // rawValue -> { el, lastSeen }
+  const STALE_MS = 350;    // сколько держим карточку без детекта, прежде чем убрать (сглаживает дропы кадров)
+
+  function cornerCenterSizeAngle(corners) {
+    // corners: [{x,y} x4] в системе координат видео
+    const cx = corners.reduce((s, p) => s + p.x, 0) / corners.length;
+    const cy = corners.reduce((s, p) => s + p.y, 0) / corners.length;
+    const w = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
+    const h = Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y);
+    const angle = Math.atan2(corners[1].y - corners[0].y, corners[1].x - corners[0].x) * (180 / Math.PI);
+    return { cx, cy, w, h, angle };
+  }
+
+  function videoToStageScale() {
+    // video отрисован через object-fit:cover — считаем масштаб и смещение,
+    // чтобы координаты детектора (в пикселях видеопотока) лечь на экран верно.
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const sw = video.clientWidth, sh = video.clientHeight;
+    if (!vw || !vh) return { scale: 1, offX: 0, offY: 0 };
+    const scale = Math.max(sw / vw, sh / vh);
+    const offX = (sw - vw * scale) / 2;
+    const offY = (sh - vh * scale) / 2;
+    return { scale, offX, offY };
+  }
+
+  function upsertCard(rawValue, entry, corners) {
+    const { cx, cy, angle } = cornerCenterSizeAngle(corners);
+    const { scale, offX, offY } = videoToStageScale();
+    const x = cx * scale + offX;
+    const y = cy * scale + offY;
+
+    let rec = cards.get(rawValue);
+    if (!rec) {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `<img src="${entry.img}" alt=""><div class="label">${entry.label}</div><div class="code">${rawValue}</div>`;
+      overlayLayer.appendChild(el);
+      rec = { el, lastSeen: 0 };
+      cards.set(rawValue, rec);
+    }
+    rec.lastSeen = performance.now();
+    rec.el.classList.remove('stale');
+    // якорим карточку чуть выше кода, чтобы не перекрывать сам штрихкод
+    rec.el.style.left = `${x}px`;
+    rec.el.style.top = `${y - 70}px`;
+    rec.el.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+    rec._x = x; rec._y = y - 70;
+  }
+
+  function pruneStale() {
+    const now = performance.now();
+    cards.forEach((rec, key) => {
+      if (now - rec.lastSeen > STALE_MS) {
+        rec.el.classList.add('stale');
+        if (now - rec.lastSeen > STALE_MS + 300) {
+          rec.el.remove();
+          cards.delete(key);
+        }
+      }
+    });
+  }
+
+  // Простой collision avoidance: если центры двух видимых карточек
+  // ближе порога — раздвигаем их по вертикали в противоположные стороны.
+  function resolveCollisions() {
+    const visible = [...cards.values()].filter(r => !r.el.classList.contains('stale'));
+    const THRESH = 60;
+    for (let i = 0; i < visible.length; i++) {
+      for (let j = i + 1; j < visible.length; j++) {
+        const a = visible[i], b = visible[j];
+        const dx = a._x - b._x, dy = a._y - b._y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < THRESH && dist > 0.001) {
+          const push = (THRESH - dist) / 2;
+          const ny = dy / dist;
+          a.el.style.top = `${a._y + ny * push}px`;
+          b.el.style.top = `${b._y - ny * push}px`;
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // 5. Основной цикл детекта — throttled, не на каждый requestAnimationFrame
+  // ---------------------------------------------------------------
+  const seenCountEl = document.getElementById('seenCount');
+  const DETECT_INTERVAL_MS = 130;
+  let lastRun = 0;
+  let busy = false;
+
+  async function tick(ts) {
+    requestAnimationFrame(tick);
+    if (!detector || busy) return;
+    if (ts - lastRun < DETECT_INTERVAL_MS) return;
+    lastRun = ts;
+    busy = true;
+    try {
+      const barcodes = await detector.detect(video);
+      seenCountEl.textContent = barcodes.length;
+      barcodes.forEach(bc => {
+        const entry = lookup(bc.rawValue);
+        if (entry) upsertCard(bc.rawValue, entry, bc.cornerPoints);
+      });
+      pruneStale();
+      resolveCollisions();
+    } catch (e) {
+      // detect() может изредка кидать на некоторых кадрах — просто пропускаем
+    } finally {
+      busy = false;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // 6. Запуск
+  // ---------------------------------------------------------------
+  (async () => {
+    const d = await initDetector();
+    if (!d) {
+      document.getElementById('errBanner').style.display = 'block';
+      return;
+    }
+    try {
+      await startCamera();
+    } catch (e) {
+      document.getElementById('errBanner').style.display = 'block';
+      document.querySelector('#errBanner p').innerHTML =
+        '<b>Не удалось получить доступ к камере.</b> ' + (e && e.message ? e.message : '');
+      return;
+    }
+    requestAnimationFrame(tick);
+  })();
+})();
+</script>
+</body>
+</html>
